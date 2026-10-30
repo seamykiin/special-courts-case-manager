@@ -90,7 +90,7 @@ STAGES_BY_GROUP = {
     "Filing & Scrutiny": [
         "Petition Filed", "New Case", "Scrutiny", "Office Objections/Defects",
         "Await Rectification", "Defects Rectified", "Re-presented", "Court Fee Compliance",
-        "Documents to be Filed", "Production of Documents", "To take Steps", "For Registration", "Case Registered", "To File Appropriate Application",
+        "Documents to be Filed", "Production of Documents", "To take Steps", "To Rectify Office Objections", "For Registration", "Case Registered", "To File Appropriate Application",
     ],
     "Preliminary Hearing / Cognizance": [
         "For Preliminary Hearing", "Hearing on Maintainability", "Sworn Statement",
@@ -98,25 +98,25 @@ STAGES_BY_GROUP = {
         "Petition Rejected/Dismissed/Dropped at Pre-Cognizance Stage",
     ],
     "Notice / Summons / Service": [
-        "Notice to Respondent", "Await Notice to Respondent", "Notice to Accused",
+        "Notice to Respondent", "Re-Issue Notice to Respondent", "Await Notice to Respondent", "Notice to Accused",
         "Await Notice to Accused", "Notification Form III", "Notice/Summons to Accused",
         "Await Notice/Summons", "Await court notice of complainant/plaintiff",
         "Await court notice of Accused/defendants", "Hearing along with the explaination",
         "Issue the direction to executive engineers", "issue notice by speed post",
-        "show case notice and explaination",
+        "show case notice and explaination", "To take Steps for Notice",
     ],
     "Appearance": [
         "Appearance of Petitioner/Complainant", "Appearance of Respondent", "Appearance of Accused",
-        "Appearance of Interested Party", "Await Appearance",
+        "Appearance of Interested Party", "Await Appearance", "To file Vakalat", "Appearance of Tahsildar / Officer",
     ],
     "Objections / Pleadings": [
-        "Time to file Objections", "Objection Statement", "Counter/Written Statement", "Rejoinder By the Petitioner",
+        "Time to file Objections", "Final Opportunity to file Objections", "Objection Statement", "Counter/Written Statement", "To file Written Statement", "Rejoinder By the Petitioner",
         "Objections to IA", "Hearing on objection", "To file Form No.1", "adjourned for want of time",
     ],
     "Reports / Verification": [
-        "To submit Report / Await Report", "Status Report", "Await Verification/Status Report", "Await Survey Report", "Revenue Records Report",
+        "To submit Report / Await Report", "To submit Mahazar & Sketch Report", "Status Report", "Await Verification/Status Report", "Await Survey Report", "Revenue Records Report",
         "Detailed Report from Tahsildar/DC/AC/Local Authority", "Await Possession/Resumption Report",
-        "Await Compliance Report", "Await Further Report", "Await Report",
+        "Await Compliance Report", "Await Further Report", "Await Report", "Await Investigation / Lokayukta Report",
     ],
     "Evidence": [
         "Complainant Evidence", "Complaint Evidence", "Defence Evidence", "Plaintiff Evidence",
@@ -126,7 +126,7 @@ STAGES_BY_GROUP = {
         "Witness Summons", "Summons to the Witness",
     ],
     "Criminal Process": [
-        "Summons to Accused", "Appearance of Accused", "Await NBW", "NBW", "Re-Issue NBW",
+        "Summons to Accused", "Appearance of Accused", "Issue Non-Bailable Warrant (NBW)", "Issue Bailable Warrant (BW)", "Await NBW", "NBW", "Re-Issue NBW",
         "Furnishing Surety", "Bailable Warrant", "Await Bailable Warrant", "Re-Issue B/W",
     ],
     "Hearing": [
@@ -981,10 +981,10 @@ def infer_stage_group_from_description(desc: str) -> str:
     d_lower = desc.lower()
 
     if any(k in d_lower for k in ("notice", "summons", "service", "bailable", "warrant", "process", "ನೋಟಿಸ್", "ಸಮನ್ಸ್", "ಜಾರಿ")):
-        return "Criminal Process" if any(k in d_lower for k in ("nbw", "b/w", "bailable", "non-bailable", "ವಾರೆಂಟ್")) else "Notice / Summons / Service"
+        return "Criminal Process" if any(k in d_lower for k in ("nbw", "b/w", "bailable", "non-bailable", "ವಾರೆಂಟ್", "ವಾರಂಟ್")) else "Notice / Summons / Service"
     if any(k in d_lower for k in ("objection", "written statement", "pleading", "ws", "counter", "reply", "rejoinder", "ಆಕ್ಷೇಪಣೆ", "ಲಿಖಿತ ಹೇಳಿಕೆ")):
         return "Objections / Pleadings"
-    if any(k in d_lower for k in ("report", "survey", "inspection", "tahsildar", "adlr", "commissioner", "verification", "status report", "compliance report", "ವರದಿ", "ಸರ್ವೆ", "ಪರಿಶೀಲನೆ")):
+    if any(k in d_lower for k in ("report", "survey", "inspection", "tahsildar", "adlr", "commissioner", "verification", "status report", "compliance report", "ವರದಿ", "ಸರ್ವೆ", "ಪರಿಶೀಲನೆ", "ಮಹಜರ್")):
         return "Reports / Verification"
     if any(k in d_lower for k in ("evidence", "witness", "chief", "cross", "pw", "dw", "sworn", "affidavit", "ಸಾಕ್ಷ್ಯ", "ಸಾಕ್ಷಿ", "ಪ್ರಮಾಣ")):
         return "Evidence"
@@ -1000,7 +1000,7 @@ def infer_stage_group_from_description(desc: str) -> str:
         return "Charge/Plea"
     if any(k in d_lower for k in ("hbc", "hearing before charge")):
         return "HBC"
-    if any(k in d_lower for k in ("compliance", "court fee", "steps", "rectification", "scrutiny", "defect", "document", "ದಾಖಲೆ", "ಕ್ರಮ", "ಪಾಲನೆ")):
+    if any(k in d_lower for k in ("compliance", "court fee", "steps", "rectification", "scrutiny", "defect", "document", "production", "produce", "deed", "ದಾಖಲೆ", "ಕ್ರಮ", "ಪಾಲನೆ")):
         return "Filing & Scrutiny"
     if any(k in d_lower for k in ("appearance", "appeared", "present", "vakalat", "ಹಾಜರಾಗಲು", "ಹಾಜರಾತಿ", "ವಕಾಲತ್")):
         return "Appearance"
@@ -1019,10 +1019,12 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
         return "", "Hearing"
 
     w = window_above.strip()
-    # Strip trailing call preambles repeatedly
-    for _ in range(3):
-        w = re.sub(r"(?i)\b(?:call\s+on|adjourn(?:ed|ment)?\s+to|post(?:ed)?\s+to|re[- ]?list\s+(?:on|to)|fixed\s+for|listed\s+(?:on|to)|next\s+(?:date|hearing)\s*(?:is|on|to)?|hearing\s+on|by|date)\s*[:\-]?\s*$", "", w.strip()).strip()
-        w = re.sub(r"(?:ಮುಂದೂಡಿದೆ|ಕರೆಯಿರಿ|ವಿಚಾರಣೆಗೆ|ಮುಂದಿನ\s*(?:ದಿನಾಂಕ|ವಿಚಾರಣೆಗೆ|ವಿಚಾರಣೆ)|ದಿನಾಂಕ)\s*[:\-]?\s*$", "", w.strip()).strip()
+    # Strip trailing call preambles, dates, and instructions repeatedly
+    for _ in range(5):
+        w = w.strip()
+        w = re.sub(r"(?i)(?:(?:ದಿನಾಂಕ\s*[:\-]?)?\s*\d{1,2}[./\-]\d{1,2}[./\-]\d{2,4}\s*(?:ಕ್ಕೆ|ರಂದು|ಗೆ)?\s*(?:ಕರೆಯಿರಿ|ಮುಂದೂಡಿದೆ|ವಿಚಾರಣೆಗೆ|ಹಾಜರಾಗಲು)?)\s*$", "", w).strip()
+        w = re.sub(r"(?i)\b(?:call\s+on|adjourn(?:ed|ment)?\s+to|post(?:ed)?\s+to|re[- ]?list\s+(?:on|to)|fixed\s+for|listed\s+(?:on|to)|next\s+(?:date|hearing)\s*(?:is|on|to)?|hearing\s+on|by|date)\s*[:\-]?\s*$", "", w).strip()
+        w = re.sub(r"(?:ಮುಂದೂಡಿದೆ|ಕರೆಯಿರಿ|ವಿಚಾರಣೆಗೆ|ಮುಂದಿನ\s*(?:ದಿನಾಂಕ|ವಿಚಾರಣೆಗೆ|ವಿಚಾರಣೆ)|ದಿನಾಂಕ|ದಿನಾಂಕದಂದು|ಕರೆ\s*ದಿನಾಂಕ|ಕರೆ)\s*[:\-]?\s*$", "", w).strip()
 
     junk_patterns = [
         r"(?i)\b(?:hon'\''ble\s+judge|ch\.?\s*no\.?\s*\d+|court\s+hall\s+(?:no\.?\s*)?\d+|spl\.?\s*court|special\s+court)\b",
@@ -1032,11 +1034,16 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
         r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಕೋರಂ\s*ಕೊರತೆ|ಕೋರಂ)(?![\u0C80-\u0CFFa-zA-Z0-9])",
     ]
 
+    # Protect dots in dates (e.g. 15.11.2026) and legal abbreviations (e.g. I.A., C.W.)
+    w_prot = re.sub(r"(\d+)\.(\d+)", r"\1<DOT>\2", w)
+    w_prot = re.sub(r"\b([A-Za-z])\.([A-Za-z])\.", r"\1<DOT>\2<DOT>", w_prot)
+    w_prot = re.sub(r"\b([A-Za-z]{1,4})\.", r"\1<DOT>", w_prot)
+
     # Split into lines and sentences
-    raw_lines = re.split(r"[\n;।\.]+", w)
+    raw_lines = re.split(r"[\n;।\.]+", w_prot)
     cleaned_candidates = []
     for line in raw_lines:
-        line_str = line.strip()
+        line_str = line.replace("<DOT>", ".").strip()
         # Strip bullets/numbering like "1.", "1)", "(1)", "a.", "-", "*"
         line_str = re.sub(r"^(?:\d+[\.\)\-:]|\([0-9a-zA-Z]+\)|[a-zA-Z][\.\)\-:]|[\-\*•])\s*", "", line_str).strip()
 
@@ -1061,9 +1068,9 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
     purpose_indicators = [
         r"(?i)\b(?:for|to|towards)\s+",
         r"(?i)\b(?:time\s+(?:prayed|sought|granted|extended|given)|seeks?\s+time|prays?\s+time)\b",
-        r"(?i)\b(?:objections?|report|notice|summons|steps|evidence|witness|hearing|arguments?|orders?|judgment|counter|rejoinder|pleadings?)\b",
+        r"(?i)\b(?:objections?|report|notice|summons|steps|evidence|witness|hearing|arguments?|orders?|judgment|counter|rejoinder|pleadings?|warrant|nbw)\b",
         r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಗಾಗಿ|ಸಲುವಾಗಿ|ಬಗ್ಗೆ|ಸಲ್ಲಿಸಲು|ಹಾಜರುಪಡಿಸಲು|ಮಾಡಲು|ಕೋರಲಾಗಿದೆ|ನೀಡಲಾಗಿದೆ|ಆದೇಶಕ್ಕಾಗಿ|ವರದಿಗಾಗಿ|ವಿಚಾರಣೆಗಾಗಿ)(?![\u0C80-\u0CFFa-zA-Z0-9])",
-        r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಆಕ್ಷೇಪಣೆ|ವರದಿ|ನೋಟಿಸ್|ಸಮನ್ಸ್|ಸಾಕ್ಷಿ|ವಾದ|ವಿಚಾರಣೆ|ಆದೇಶ|ದಾಖಲೆ|ಕ್ರಮ)(?![\u0C80-\u0CFFa-zA-Z0-9])",
+        r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಆಕ್ಷೇಪಣೆ|ವರದಿ|ನೋಟಿಸ್|ಸಮನ್ಸ್|ಸಾಕ್ಷಿ|ವಾದ|ವಿಚಾರಣೆ|ಆದೇಶ|ದಾಖಲೆ|ಕ್ರಮ|ವಾರಂಟ್|ಹಾಜರಾಗಲು)(?![\u0C80-\u0CFFa-zA-Z0-9])",
     ]
 
     selected_sent = None
@@ -1081,40 +1088,92 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
     # Clean leading order tags
     s_clean = re.sub(r"^(?:order\s*[:\-]|ಆದೇಶ\s*[:\-]|ನಡಾವಳಿ\s*[:\-])\s*", "", selected_sent, flags=re.I).strip()
 
+    # 1. Non-bailable warrant
+    if re.search(r"ಜಾಮೀನು\s*ರಹಿತ\s*ವಾರಂಟ್", s_clean) or re.search(r"(?i)\b(?:issue|re[- ]?issue)?\s*(?:nbw|non[- ]?bailable\s+warrant)\b", s_clean):
+        return "Issue Non-Bailable Warrant (NBW)", "Criminal Process"
+
+    # 2. Bailable warrant
+    if re.search(r"ಜಾಮೀನು\s*ಸಹಿತ\s*ವಾರಂಟ್|ಬೇಲೆಬಲ್\s*ವಾರಂಟ್", s_clean) or re.search(r"(?i)\b(?:issue|re[- ]?issue)?\s*(?:bw|bailable\s+warrant)\b", s_clean):
+        return "Issue Bailable Warrant (BW)", "Criminal Process"
+
+    # 3. Notice to respondent
+    if re.search(r"(?:ಮರು\s*ನೋಟಿಸ್|ಪುನಃ\s*ನೋಟಿಸ್)", s_clean) or re.search(r"(?i)\bre[- ]?issue\s+notice\b", s_clean):
+        return "Re-Issue Notice to Respondent", "Notice / Summons / Service"
+    if re.search(r"ನೋಟಿಸ್\s*(?:ಜಾರಿ|ಸಲ್ಲಿಸಲು|ನೀಡಲು)", s_clean) or re.search(r"(?i)\b(?:issue\s+notice|notice\s+to\s+respondent)\b", s_clean):
+        return "Notice to Respondent", "Notice / Summons / Service"
+
+    # 4. Summons
+    if re.search(r"ಸಾಕ್ಷಿ(?:ಗೆ|ಗಳಿಗೆ)?\s*ಸಮನ್ಸ್", s_clean) or re.search(r"(?i)\bwitness\s+summons\b", s_clean):
+        return "Summons to Witness", "Evidence"
+    if re.search(r"ಆಪಾದಿತ(?:ರಿಗೆ|ಗೆ)?\s*ಸಮನ್ಸ್|ಸಮನ್ಸ್\s*ಜಾರಿ", s_clean) or re.search(r"(?i)\bsummons\s+to\s+accused\b", s_clean):
+        return "Summons to Accused", "Criminal Process"
+
+    # 5. Objections
+    if re.search(r"ಅಂತಿಮ\s*ಕಾಲಾವಕಾಶ.*ಆಕ್ಷೇಪಣೆ|ಆಕ್ಷೇಪಣೆ.*ಅಂತಿಮ\s*ಕಾಲಾವಕಾಶ", s_clean) or re.search(r"(?i)\bfinal\s+(?:opportunity|chance|time)\s+to\s+file\s+objections?\b", s_clean):
+        return "Final Opportunity to file Objections", "Objections / Pleadings"
+    if re.search(r"ಆಕ್ಷೇಪಣೆ(?:ಗಳನ್ನು)?\s*ಸಲ್ಲಿಸಲು\s*(?:ಕಾಲಾವಕಾಶ|ಸಮಯಾವಕಾಶ|ದಿನಾಂಕ)?", s_clean) or re.search(r"(?i)\b(?:seeks?|prays?|granted|extended|give|given)\s+time\s+to\s+file\s+objections?\b", s_clean):
+        return "Time to file Objections", "Objections / Pleadings"
+    if re.search(r"ಲಿಖಿತ\s*(?:ಹೇಳಿಕೆ|ಆಕ್ಷೇಪಣೆ)|ಆಕ್ಷೇಪಣಾ\s*ಹೇಳಿಕೆ", s_clean) or re.search(r"(?i)\b(?:written\s+statement|statement\s+of\s+objection|objection\s+statement)\b", s_clean):
+        return "Objection Statement", "Objections / Pleadings"
+
+    # 6. Reports & Mahazar
+    if re.search(r"(?:ಸ್ಥಳ\s*)?ಮಹಜರ್\s*(?:ಮತ್ತು\s*ನಕ್ಷೆ\s*)?ವರದಿ", s_clean) or re.search(r"(?i)\bmahazar\s+(?:and\s+sketch\s+)?report\b", s_clean):
+        return "To submit Mahazar & Sketch Report", "Reports / Verification"
+    if re.search(r"ಸರ್ವೆ\s*ವರದಿ", s_clean) or re.search(r"(?i)\bsurvey\s+report\b", s_clean):
+        return "Await Survey Report", "Reports / Verification"
+    if re.search(r"ಲೋಕಾಯುಕ್ತ\s*ವರದಿ|ತನಿಖಾ\s*ವರದಿ", s_clean) or re.search(r"(?i)\b(?:lokayukta|investigation)\s+report\b", s_clean):
+        return "Await Investigation / Lokayukta Report", "Reports / Verification"
+    if re.search(r"(?:ತಹಶೀಲ್ದಾರ್|ಸರ್ವೆ|ಸ್ಥಳ\s*ಪರಿಶೀಲನೆ|ತನಿಖಾ)?\s*ವರದಿ\s*(?:ಸಲ್ಲಿಸಲು|ಬಂದಿರುವುದಿಲ್ಲ|ನಿರೀಕ್ಷೆ|ಸಲ್ಲಿಸಲು\s*ನಿರ್ದೇಶನ|ಕೋರಲು)", s_clean) or re.search(r"(?i)\b(?:submit|await|reminder\s+for)\s+(?:survey|tahsildar|inspection|status)?\s*report\b", s_clean):
+        return "To submit Report / Await Report", "Reports / Verification"
+
+    # 7. Evidence / Witnesses
+    if re.search(r"ಸಾಕ್ಷಿ\s*ಪಾಟಿಸವಾಲು", s_clean) or re.search(r"(?i)\bcross\s+(?:examination|of\s+pw|of\s+dw)\b", s_clean):
+        return "Cross Examination of Witness", "Evidence"
+    if re.search(r"(?:ಅರ್ಜಿದಾರರ|ಪ್ರತಿವಾದಿಗಳ|ಫಿರ್ಯಾದಿ)?\s*ಸಾಕ್ಷಿ\s*ವಿಚಾರಣೆ", s_clean) or re.search(r"(?i)\bexamination\s+of\s+witness\b", s_clean):
+        return "Witness Examination", "Evidence"
+
+    # 8. Arguments
+    if re.search(r"ವಾದ\s*(?:ಮಂಡನೆ|ಆಲಿಕೆ|ಆಲಿಸಲು|ಕೇಳಲು)", s_clean) or re.search(r"(?i)\b(?:further\s+arguments?|for\s+arguments?|hearing\s+on\s+arguments?)\b", s_clean):
+        return "Hearing on Arguments", "Arguments"
+
+    # 9. IA / Interim Applications
+    if re.search(r"ಮಧ್ಯಂತರ\s*ಅರ್ಜಿ.*ಆದೇಶ|ಆದೇಶಕ್ಕಾಗಿ.*ಮಧ್ಯಂತರ\s*ಅರ್ಜಿ", s_clean) or re.search(r"(?i)\borders?\s+on\s+i\.?a\.?\b", s_clean):
+        return "Orders on IA", "Orders"
+    if re.search(r"ಮಧ್ಯಂತರ\s*ಅರ್ಜಿ|ಐ\.?ಎ\.?", s_clean) or re.search(r"(?i)\b(?:hearing\s+on\s+i\.?a\.?|i\.?a\.?\s*hearing)\b", s_clean):
+        return "Hearing on IA", "Hearing"
+
+    # 10. Orders & Judgments
+    if re.search(r"ತೀರ್ಪಿಗಾಗಿ|ತೀರ್ಪಿಗೆ", s_clean) or re.search(r"(?i)\bfor\s+judg(?:e)?ment\b", s_clean):
+        return "For Judgment", "Judgment / Final Order"
+    if re.search(r"ಆದೇಶಕ್ಕಾಗಿ|ಆದೇಶಕ್ಕೆ", s_clean) or re.search(r"(?i)\bfor\s+(?:orders?|ruling)\b", s_clean):
+        return "For Orders", "Orders"
+
+    # 11. Steps & Office objections
+    if re.search(r"ಕಚೇರಿ\s*ಆಕ್ಷೇಪಣೆ", s_clean) or re.search(r"(?i)\boffice\s+objections?\b", s_clean):
+        return "To Rectify Office Objections", "Filing & Scrutiny"
+    if re.search(r"ದಾಖಲೆ(?:ಗಳನ್ನು)?\s*(?:ಹಾಜರುಪಡಿಸಲು|ಸಲ್ಲಿಸಲು|ಒದಗಿಸಲು)", s_clean) or re.search(r"(?i)\b(?:to\s+produce|production\s+of)\s+documents?\b", s_clean):
+        return "Production of Documents", "Filing & Scrutiny"
+    if re.search(r"ಕ್ರಮ\s*ಕೈಗೊಳ್ಳಲು|ಕ್ರಮಕ್ಕೆ", s_clean) or re.search(r"(?i)\bto\s+take\s+steps\b", s_clean):
+        return "To take Steps", "Filing & Scrutiny"
+
+    # 12. Appearance & Vakalat
+    if re.search(r"ವಕಾಲತ್\s*(?:ಹಾಕಲು|ಸಲ್ಲಿಸಲು)", s_clean) or re.search(r"(?i)\bto\s+file\s+vakalat\b", s_clean):
+        return "To file Vakalat", "Appearance"
+    if re.search(r"ತಹಶೀಲ್ದಾರ್.*ಹಾಜರಾಗಲು|ಅಧಿಕಾರಿ.*ಹಾಜರಾಗಲು", s_clean) or re.search(r"(?i)\bappearance\s+of\s+(?:tahsildar|officer)\b", s_clean):
+        return "Appearance of Tahsildar / Officer", "Appearance"
+
+    # 13. Charges
+    if re.search(r"ಆರೋಪ\s*(?:ನಿಗದಿ|ವಾಚನ|ರಚನೆ)", s_clean) or re.search(r"(?i)\bframing\s+of\s+charge\b", s_clean):
+        return "Framing of Charge", "Charge/Plea"
+
     # Distill into clean canonical description or concise sentence
-    desc = s_clean
-    if re.search(r"ಆಕ್ಷೇಪಣೆ(?:ಗಳನ್ನು)?\s*ಸಲ್ಲಿಸಲು\s*(?:ಕಾಲಾವಕಾಶ|ಸಮಯಾವಕಾಶ)?", s_clean):
-        desc = "Time to file Objections"
-    elif re.search(r"(?i)\b(?:seeks?|prays?|granted|extended|give|given)\s+time\s+to\s+file\s+objections?\b", s_clean):
-        desc = "Time to file Objections"
-    elif re.search(r"(?:ತಹಶೀಲ್ದಾರ್|ಸರ್ವೆ|ಸ್ಥಳ\s*ಪರಿಶೀಲನೆ|ತನಿಖಾ)?\s*ವರದಿ\s*(?:ಸಲ್ಲಿಸಲು|ಬಂದಿರುವುದಿಲ್ಲ|ನಿರೀಕ್ಷೆ|ಸಲ್ಲಿಸಲು\s*ನಿರ್ದೇಶನ)", s_clean):
-        desc = "To submit Report / Await Report"
-    elif re.search(r"(?i)\b(?:submit|await|reminder\s+for)\s+(?:survey|tahsildar|inspection|status)?\s*report\b", s_clean):
-        desc = "To submit Report / Await Report"
-    elif re.search(r"ದಾಖಲೆ(?:ಗಳನ್ನು)?\s*(?:ಹಾಜರುಪಡಿಸಲು|ಸಲ್ಲಿಸಲು|ಒದಗಿಸಲು)", s_clean):
-        desc = "Production of Documents"
-    elif re.search(r"(?i)\b(?:to\s+produce|production\s+of)\s+documents?\b", s_clean):
-        desc = "Production of Documents"
-    elif re.search(r"(?:ಕ್ರಮ\s*ಕೈಗೊಳ್ಳಲು|ಕ್ರಮಕ್ಕೆ)", s_clean) or re.search(r"(?i)\bto\s+take\s+steps\b", s_clean):
-        desc = "To take Steps"
-    elif re.search(r"(?i)\b(?:hearing\s+on\s+i\.?a\.?|orders?\s+on\s+i\.?a\.?|i\.?a\.?\s*hearing)\b", s_clean) or "ಮಧ್ಯಂತರ ಅರ್ಜಿ" in s_clean:
-        desc = "Hearing on IA"
-    elif re.search(r"(?i)\b(?:cross\s+examination|cross\s+of\s+pw|cross\s+of\s+dw|examination\s+of\s+witness)\b", s_clean) or "ಸಾಕ್ಷಿ ವಿಚಾರಣೆ" in s_clean:
-        desc = "Cross Examination of Witness"
-    elif re.search(r"(?i)\b(?:further\s+arguments?|for\s+arguments?|hearing\s+on\s+arguments?)\b", s_clean) or re.search(r"ವಾದ\s*(?:ಮಂಡನೆ|ಆಲಿಕೆ|ಆಲಿಸಲು)", s_clean):
-        desc = "Hearing on Arguments"
-    elif re.search(r"(?i)\bfor\s+(?:orders?|ruling)\b", s_clean) or "ಆದೇಶಕ್ಕಾಗಿ" in s_clean:
-        desc = "For Orders"
-    elif re.search(r"(?i)\bfor\s+judg(?:e)?ment\b", s_clean) or "ತೀರ್ಪಿಗೆ" in s_clean or "ತೀರ್ಪಿಗಾಗಿ" in s_clean:
-        desc = "For Judgment"
-    else:
-        desc = re.sub(r"\s+", " ", s_clean).strip(" ,.-:;")
-        if len(desc) > 85:
-            cut = desc[:85]
-            sp = cut.rfind(" ")
-            desc = (cut[:sp] if sp > 35 else cut) + "…"
-        if desc and desc[0].isascii() and desc[0].islower():
-            desc = desc[0].upper() + desc[1:]
+    desc = re.sub(r"\s+", " ", s_clean).strip(" ,.-:;")
+    if len(desc) > 85:
+        cut = desc[:85]
+        sp = cut.rfind(" ")
+        desc = (cut[:sp] if sp > 35 else cut) + "…"
+    if desc and desc[0].isascii() and desc[0].islower():
+        desc = desc[0].upper() + desc[1:]
 
     group = infer_stage_group_from_description(desc)
     return desc, group

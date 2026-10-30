@@ -434,6 +434,23 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
                 ch_fn = extract_court_hall_from_filename(p.get("name", "")) or extract_court_hall_from_filename(p.get("file_path", ""))
                 court_val = ch_fn or ext.get("court") or "Court Hall No.1"
 
+                # Sub-stage and stage group extraction
+                p_stage = ext.get("stage") or ""
+                p_stgroup = ext.get("stage_group") or ""
+                if NOTICE_TO_RESPONDENT_REGEX.search(p_stage) or NOTICE_TO_RESPONDENT_REGEX.search(p.get("raw_text", "")):
+                    p_stage = "Notice to Respondent"
+                    p_stgroup = "Notice / Summons / Service"
+                elif not p_stage or p_stage in ("Appearance of Accused", "Appearance of Respondent/Accused", "Hearing"):
+                    p_desc, p_grp = summarize_call_description_from_window(p.get("raw_text", ""))
+                    if p_desc:
+                        p_stage = p_desc
+                        p_stgroup = p_grp
+                    else:
+                        p_stage = p_stage or "Appearance of Respondent/Accused"
+                        p_stgroup = p_stgroup or "Appearance"
+                elif not p_stgroup:
+                    p_stgroup = infer_stage_group_from_description(p_stage)
+
                 output_cases.append({
                     "name": p["name"],
                     "caseNo": str(cno_num),
@@ -446,11 +463,11 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
                     "filing_year": int(fyear) if str(fyear).isdigit() else 2024,
                     "applicants": ext.get("applicants") or "",
                     "respondents": ext.get("respondents") or "",
-                    "currentStage": ext.get("stage") or "Appearance of Respondent/Accused",
-                    "stage": ext.get("stage") or "Appearance of Respondent/Accused",
-                    "sub_stage": ext.get("stage") or "Appearance of Respondent/Accused",
-                    "stageGroup": ext.get("stage_group") or "Appearance",
-                    "stage_group": ext.get("stage_group") or "Appearance",
+                    "currentStage": p_stage,
+                    "stage": p_stage,
+                    "sub_stage": p_stage,
+                    "stageGroup": p_stgroup,
+                    "stage_group": p_stgroup,
                     "restoration": ext.get("restoration") or "No",
                     "restorationOfLand": ext.get("restoration") or "No",
                     "nextHearing": ext.get("hearing_date") or "",
