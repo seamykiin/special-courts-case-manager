@@ -158,7 +158,7 @@ body.mode-disposed {
 /* Main Split layout (Left Form/Table, Right PDF Viewer) */
 .middle-paned-layout {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   align-items: flex-start;
   width: 100%;
   padding: 12px 16px;
@@ -167,20 +167,24 @@ body.mode-disposed {
 .main-view-container {
   flex: 1 1 100%;
   min-width: 0;
+  box-sizing: border-box;
   transition: flex 0.2s ease;
 }
 .middle-paned-layout.split-active .main-view-container {
-  flex: 1 1 56%;
-  max-width: 56%;
+  flex: 1 1 calc(52% - 8px);
+  max-width: calc(52% - 8px);
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 /* Side-by-side PDF Viewer Pane matching case.py */
 .pdf-side-pane {
-  flex: 1 1 44%;
-  max-width: 44%;
-  min-width: 340px;
+  flex: 1 1 calc(48% - 8px);
+  max-width: calc(48% - 8px);
+  min-width: 320px;
+  box-sizing: border-box;
   position: sticky;
-  top: 14px;
+  top: 10px;
   height: calc(100vh - 120px);
   background: #ffffff;
   border: 1px solid #cbd5e1;
@@ -189,7 +193,53 @@ body.mode-disposed {
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
-  z-index: 30;
+  z-index: 10;
+}
+
+/* Clean 2-column paired layout for Data Entry forms (no overlay/collision) */
+.grid,
+.middle-paned-layout .grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px 14px !important;
+  align-items: start !important;
+}
+.grid .field,
+.middle-paned-layout .grid .field {
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.grid .field.span2,
+.middle-paned-layout .grid .field.span2 {
+  grid-column: span 2 !important;
+}
+.grid .field label,
+.middle-paned-layout .grid .field label {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  margin-bottom: 4px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #475569 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+}
+.grid .field input,
+.grid .field select,
+.middle-paned-layout .grid .field input,
+.middle-paned-layout .grid .field select {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  height: 34px !important;
+  font-size: 12px !important;
+}
+.middle-paned-layout .panel {
+  padding: 16px 18px !important;
+  box-sizing: border-box !important;
 }
 .pdf-top-bar {
   background: #1e293b;
@@ -2816,7 +2866,7 @@ part8_features = """
                   ${TYPES.map(t => `<option value="${t.code}">${t.label}</option>`).join("")}
                 </select>
               </div>
-              <div class="field span2 mono">
+              <div class="field mono">
                 <label>Case Number (number only)</label>
                 <input type="text" id="fCaseNo" placeholder="e.g. 1650">
               </div>
@@ -2824,7 +2874,7 @@ part8_features = """
                 <label>Year of Filing</label>
                 <input type="number" id="fFilingYear" value="${CURRENT_YEAR}" min="2000" max="${CURRENT_YEAR + 1}">
               </div>
-              <div class="field">
+              <div class="field span2">
                 <label>CNR Number (optional)</label>
                 <input type="text" id="fCnr" placeholder="KA...">
               </div>
@@ -2858,7 +2908,7 @@ part8_features = """
                   <label>Dispose Date</label>
                   <input type="date" id="fDisposeDate">
                 </div>
-                <div class="field">
+                <div class="field span2">
                   <label>Disposal Nature</label>
                   <select id="fDisposalNature">
                     <option value="">— Select Nature —</option>
