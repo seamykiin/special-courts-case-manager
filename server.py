@@ -31,7 +31,9 @@ from case import (
     extract_case_number_only,
     render_document_page_png,
     NOTICE_TO_RESPONDENT_REGEX,
-    extract_court_hall_from_filename
+    extract_court_hall_from_filename,
+    summarize_call_description_from_window,
+    infer_stage_group_from_description
 )
 
 PORT = int(os.environ.get("PORT", 8000))
@@ -477,20 +479,30 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
                 type_code, prefix = format_case_type_and_prefix(ctype)
                 full_case_no = f"{prefix}.No.{cno_num}/{fyear}" if cno_num else f"{prefix}.No.New/{fyear}"
 
-                stage_val = ext.get("stage") or "Appearance of Respondent/Accused"
-                stgroup_val = ext.get("stage_group") or "Appearance"
+                stage_val = ext.get("stage") or ""
+                stgroup_val = ext.get("stage_group") or ""
 
                 # Priority Rule: If there is notice to respondent, take Notice to Respondent only!
                 if NOTICE_TO_RESPONDENT_REGEX.search(stage_val) or NOTICE_TO_RESPONDENT_REGEX.search(raw_full):
                     stage_val = "Notice to Respondent"
                     stgroup_val = "Notice / Summons / Service"
-                elif not ext.get("stage"):
-                    if re.search(r'(?i)\b(?:for\s+)?hbc(?:\s+finally)?\b|\bhearing\s+before\s+charge\b', raw_full):
+                elif not stage_val or stage_val in ("Appearance of Accused", "Appearance of Respondent/Accused", "Hearing"):
+                    # Check if a description can be created based on available sentences above next hearing date
+                    desc, grp = summarize_call_description_from_window(raw_full)
+                    if desc:
+                        stage_val = desc
+                        stgroup_val = grp
+                    elif re.search(r'(?i)\b(?:for\s+)?hbc(?:\s+finally)?\b|\bhearing\s+before\s+charge\b', raw_full):
                         stage_val = "HBC"
                         stgroup_val = "HBC"
                     elif "witness summons" in raw_full.lower():
                         stage_val = "Summons to Witness"
                         stgroup_val = "Evidence"
+                    else:
+                        stage_val = stage_val or "Appearance of Respondent/Accused"
+                        stgroup_val = stgroup_val or "Appearance"
+                elif not stgroup_val:
+                    stgroup_val = infer_stage_group_from_description(stage_val)
 
                 # Take court hall number from file name per user rule
                 ch_fn = extract_court_hall_from_filename(g.get("name", "")) or (extract_court_hall_from_filename(g["paths"][0]) if g.get("paths") else None)

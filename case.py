@@ -88,7 +88,7 @@ STAGES_BY_GROUP = {
     "Filing & Scrutiny": [
         "Petition Filed", "New Case", "Scrutiny", "Office Objections/Defects",
         "Await Rectification", "Defects Rectified", "Re-presented", "Court Fee Compliance",
-        "Documents to be Filed", "For Registration", "Case Registered", "To File Appropriate Application",
+        "Documents to be Filed", "Production of Documents", "To take Steps", "For Registration", "Case Registered", "To File Appropriate Application",
     ],
     "Preliminary Hearing / Cognizance": [
         "For Preliminary Hearing", "Hearing on Maintainability", "Sworn Statement",
@@ -108,17 +108,17 @@ STAGES_BY_GROUP = {
         "Appearance of Interested Party", "Await Appearance",
     ],
     "Objections / Pleadings": [
-        "Objection Statement", "Counter/Written Statement", "Rejoinder By the Petitioner",
+        "Time to file Objections", "Objection Statement", "Counter/Written Statement", "Rejoinder By the Petitioner",
         "Objections to IA", "Hearing on objection", "To file Form No.1", "adjourned for want of time",
     ],
     "Reports / Verification": [
-        "Status Report", "Await Verification/Status Report", "Await Survey Report", "Revenue Records Report",
+        "To submit Report / Await Report", "Status Report", "Await Verification/Status Report", "Await Survey Report", "Revenue Records Report",
         "Detailed Report from Tahsildar/DC/AC/Local Authority", "Await Possession/Resumption Report",
         "Await Compliance Report", "Await Further Report", "Await Report",
     ],
     "Evidence": [
         "Complainant Evidence", "Complaint Evidence", "Defence Evidence", "Plaintiff Evidence",
-        "Defendants Evidence", "Prosecution Evidence", "Cross of Complainant Witness",
+        "Defendants Evidence", "Prosecution Evidence", "Cross Examination of Witness", "Witness Examination", "Cross of Complainant Witness",
         "Cross of Defence Witness", "Cross of Plaintiff Witness", "Cross of Defendants Witness",
         "Cross of PW", "Cross of DW", "cross examination of witness", "Summons to Witness",
         "Witness Summons", "Summons to the Witness",
@@ -132,7 +132,7 @@ STAGES_BY_GROUP = {
         "For Hearing on Application",
     ],
     "Arguments": [
-        "Arguments", "Complainant Arguments", "Complaint Arguments", "Defence Arguments",
+        "Arguments", "Hearing on Arguments", "Complainant Arguments", "Complaint Arguments", "Defence Arguments",
         "Defence Argument", "Prosecution Arguments", "Plaintiff Arguments", "Defendants Arguments",
         "Further Arguments", "Further arguments", "Reply arguments",
     ],
@@ -160,7 +160,7 @@ STAGES_BY_GROUP = {
         "Acquitted", "Criminal liability Fixed", "Civil liability Fixed",
     ],
     "Orders": [
-        "Orders", "Orders on IA", "Orders on HBC", "Orders on Statement of objection", "Orders on Reports",
+        "Orders", "For Orders", "Orders on IA", "Orders on HBC", "Orders on Statement of objection", "Orders on Reports",
     ],
     "Charge/Plea": [
         "Charge", "Plea", "Framing of Charge",
@@ -335,7 +335,7 @@ Extract the relevant case details into a valid JSON object matching these exact 
   "existing_case_no": "Existing Case number (NUMBER ONLY, without LGC prefix and without year). Located directly BELOW the Court Hall No. (ನ್ಯಾಯಾಂಗಣ-1/2 or CH. No.1/2). For example, from 'ಎಲ್.ಜಿ.ಸಿ.(ಜಿ) ನಂ. 1466/2024', extract strictly '1466'. Do not include the year or prefix.",
   "filing_year": "4-digit year extracted directly from the date at the top of the Order Sheet ('ಆದೇಶ ಪತ್ರ' or 'ಆರ್ಡರ್ ಶೀಟ್' / 'Order Sheet') section (e.g. from 'ದಿನಾಂಕ 22ನೇ ಜುಲೈ 2024', extract '2024'). If no order sheet is present, use the year from the case number or petition date.",
   "stage_group": "Must be one of the official 20 stage groups: Filing & Scrutiny, Preliminary Hearing / Cognizance, Notice / Summons / Service, Appearance, Objections / Pleadings, Reports / Verification, Evidence, Criminal Process, Hearing, Arguments, Judgment / Final Order, Possession / Execution / Compliance, Compliance during pendency of Proceeding, Compliance Post Disposal, Stayed Matters, Closed / Disposal, Orders, Charge/Plea, HBC, 313 Cr.P.C /351 BNSS Statement",
-  "stage": "The exact current procedural stage mentioned in the daily order or margin note (e.g. Notice to Respondent, Summons to Accused, Appearance of Respondent, Hearing on objection, Objection Statement, Sworn Statement, Complaint Evidence, Arguments, Hearing, Orders, Judgement, Await Report, Status Report, Compliance Report, Bailable Warrant, Await NBW, Disposed). CRITICAL RULE: If the operative order or sub-stage summary directs or mentions notice to respondent (e.g. 'issue notice to respondent', 're-issue notice to respondent', 'await notice to respondent', 'notice to respondent in Form IV', 'ಎದುರುದಾರರಿಗೆ ನೋಟಿಸ್'), strictly extract 'Notice to Respondent' as the stage and 'Notice / Summons / Service' as stage_group.",
+  "stage": "The exact current procedural stage mentioned in the daily order or margin note (e.g. Notice to Respondent, Summons to Accused, Appearance of Respondent, Hearing on objection, Objection Statement, Sworn Statement, Complaint Evidence, Arguments, Hearing, Orders, Judgement, Await Report, Status Report, Compliance Report, Bailable Warrant, Await NBW, Disposed). CRITICAL RULE: If the operative order or sub-stage summary directs or mentions notice to respondent (e.g. 'issue notice to respondent', 're-issue notice to respondent', 'await notice to respondent', 'notice to respondent in Form IV', 'ಎದುರುದಾರರಿಗೆ ನೋಟಿಸ್'), strictly extract 'Notice to Respondent' as the stage and 'Notice / Summons / Service' as stage_group. If there is no standard matching sub-stage, create a clear description based on the available sentences above the next hearing date summarizing what the next call is about.",
   "restoration": "Restoration of land status if stated: Yes, No, Partial, or N/A",
   "hearing_date": "Next upcoming hearing date strictly in YYYY-MM-DD format. Look for operative directions at the end of the order sheet (e.g. 'adjourned to...', 'call on...', 'posted to...'). Keep the next scheduled hearing date even if adjourned for Quorum (do not go back to previous hearing date). DO NOT return the past filing date.",
   "extent": "The numerical value of the land extent extracted specifically from the Order Sheet paragraph ('ಆದೇಶ ಪತ್ರ' or 'ಆರ್ಡರ್ ಶೀಟ್'). Look for the encroached portion ('ಪೈಕಿ ... ಒತ್ತುವರಿ' or '... ಚದರ ಅಡಿ / ಎಕರೆ ಜಾಗವನ್ನು ಒತ್ತುವರಿ'). If both acres and guntas are present (e.g. '1 acre 25 guntas', '1-25', '50 ಎಕರೆ 30 ಗುಂಟೆ'), extract the full compound value ('1.25', '50.30') with unit 'Acre + Guntas' (never drop the guntas part). Do not confuse with respondent age or door numbers.",
@@ -354,7 +354,7 @@ Extract the relevant case details into a valid JSON object matching these exact 
 Extraction Guidelines:
 1. Case Number & Court Hall: The existing case number is ALWAYS located directly below Court Hall No. (ನ್ಯಾಯಾಂಗಣ-1/2 or CH. No.1/2) in the document header. Extract ONLY the number digits (e.g. from '1466/2024', extract '1466'). Put the prefix (e.g. 'LGC(G)') into case_type, and the year (e.g. '2024') into filing_year. For Court Hall: extract strictly as 'Court Hall No.1' or 'Court Hall No.2'. Always identify Court Hall No.2 from 'CH. No. 02', 'CH 02', 'CH. No. II', 'CH-II', 'Court Hall II', 'Court Hall 02', '02ನೇ ನ್ಯಾಯಾಂಗಣ', 'ನ್ಯಾಯಾಂಗಣ-02', 'ನ್ಯಾಯಾಂಗಣ-II', 'Made over to CH. No. 02', Roman 'II', or '02'. Identify Court Hall No.1 from '01', 'I', '1', 'CH. No. 01', '01ನೇ ನ್ಯಾಯಾಂಗಣ', 'ನ್ಯಾಯಾಂಗಣ-01', etc.
 2. General applicability: The document can be from any taluk, district, or year in Karnataka. Do not assume any pre-set village or case number.
-3. Next hearing date: Always extract the scheduled NEXT date from judge operative directions or margin notes. Format strictly as YYYY-MM-DD. Keep the next hearing date even if adjourned for Quorum (do not go back to previous date); but if there is a 'Quorum' keyword, take stage and stage_group from the previous substantive order.
+3. Next hearing date & Sub Stage: Always extract the scheduled NEXT date from judge operative directions or margin notes. Format strictly as YYYY-MM-DD. Keep the next hearing date even if adjourned for Quorum (do not go back to previous date); but if there is a 'Quorum' keyword, take stage and stage_group from the previous substantive order. If there is no standard matching sub-stage, create a clear concise description based on the available sentences above the next hearing date summarizing what the next call is about (e.g. 'Time to file objections', 'Issue reminder to Tahsildar for survey report', 'Cross examination of PW-1', 'Production of original documents').
 4. Order Sheet extraction: Both filing_year and land extent are located in the Order Sheet section ('ಆದೇಶ ಪತ್ರ' or 'ಆರ್ಡರ್ ಶೀಟ್'). Extract filing_year directly from the Order Sheet heading date ('ದಿನಾಂಕ ... 20xx'). For land extent: look for the land extent in the order sheet. When both acres and guntas are specified (e.g. '1 acre 25 guntas' or '50 ಎಕರೆ 30 ಗುಂಟೆ'), extract the full compound value ('1.25' or '50.30') and set unit to 'Acre + Guntas' (do NOT drop or truncate the guntas). Convert Kannada unit terms (ಚದರ ಅಡಿ -> Square feet, ಎಕರೆ -> Acre, ಗುಂಟೆ -> Guntas, ಸೆಂಟ್ಸ್ -> Cents). When a survey number has one or more slashes '/' (e.g. '24/8/7', '25/8', '117/3/1'), extract the COMPLETE full survey number with every slash and sub-number. Never truncate to '24' or '24/8' — take the full multi-part value like '24/8/7'.
 5. Transliteration: Write Kannada place names, revenue divisions, and party names in standard English title case.
 6. Return ONLY the valid JSON object with no markdown fences, commentary, or extra text."""
@@ -968,6 +968,152 @@ STAGE_RULES = [
     (r"\b(?:orders?\s+on\s+i\.?a\.?)\b", "Orders on IA"),
     (r"\borders?\b|(?<![\u0C80-\u0CFFa-zA-Z0-9])ಆದೇಶ(?:ಕ್ಕೆ|ಕ್ಕಾಗಿ|ದ)?(?![\u0C80-\u0CFFa-zA-Z0-9])", "Orders"),
 ]
+
+
+def infer_stage_group_from_description(desc: str) -> str:
+    """Infers the most appropriate stage group from a free-text call description."""
+    if not desc:
+        return "Hearing"
+    d_lower = desc.lower()
+
+    if any(k in d_lower for k in ("notice", "summons", "service", "bailable", "warrant", "process", "ನೋಟಿಸ್", "ಸಮನ್ಸ್", "ಜಾರಿ")):
+        return "Criminal Process" if any(k in d_lower for k in ("nbw", "b/w", "bailable", "non-bailable", "ವಾರೆಂಟ್")) else "Notice / Summons / Service"
+    if any(k in d_lower for k in ("objection", "written statement", "pleading", "ws", "counter", "reply", "rejoinder", "ಆಕ್ಷೇಪಣೆ", "ಲಿಖಿತ ಹೇಳಿಕೆ")):
+        return "Objections / Pleadings"
+    if any(k in d_lower for k in ("report", "survey", "inspection", "tahsildar", "adlr", "commissioner", "verification", "status report", "compliance report", "ವರದಿ", "ಸರ್ವೆ", "ಪರಿಶೀಲನೆ")):
+        return "Reports / Verification"
+    if any(k in d_lower for k in ("evidence", "witness", "chief", "cross", "pw", "dw", "sworn", "affidavit", "ಸಾಕ್ಷ್ಯ", "ಸಾಕ್ಷಿ", "ಪ್ರಮಾಣ")):
+        return "Evidence"
+    if any(k in d_lower for k in ("argument", "arguments", "submission", "hearing on argument", "ವಾದ", "ವಾದ-ಪ್ರತಿವಾದ")):
+        return "Arguments"
+    if any(k in d_lower for k in ("judgment", "judgement", "final order", "disposed", "disposal", "ತೀರ್ಪು", "ವಿಲೇವಾರಿ")):
+        return "Judgment / Final Order"
+    if re.search(r"\b(?:orders?\s+on|for\s+orders?|order\s+on\s+ia|order\s+on\s+application|hearing\s+on\s+ia|i\.?a\.?|\bia\b)\b", d_lower) or "ಆದೇಶ" in d_lower or "ಮಧ್ಯಂತರ ಅರ್ಜಿ" in d_lower:
+        return "Orders"
+    if any(k in d_lower for k in ("settlement", "mediation", "compromise", "lok adalat", "ರಾಜಿ", "ಮಧ್ಯಸ್ಥಿಕೆ")):
+        return "Appearance"
+    if any(k in d_lower for k in ("charge", "plea", "313", "351", "ಆರೋಪ")):
+        return "Charge/Plea"
+    if any(k in d_lower for k in ("hbc", "hearing before charge")):
+        return "HBC"
+    if any(k in d_lower for k in ("compliance", "court fee", "steps", "rectification", "scrutiny", "defect", "document", "ದಾಖಲೆ", "ಕ್ರಮ", "ಪಾಲನೆ")):
+        return "Filing & Scrutiny"
+    if any(k in d_lower for k in ("appearance", "appeared", "present", "vakalat", "ಹಾಜರಾಗಲು", "ಹಾಜರಾತಿ", "ವಕಾಲತ್")):
+        return "Appearance"
+    if any(k in d_lower for k in ("cognizance", "preliminary", "maintainability", "ಸ್ವೀಕಾರ")):
+        return "Preliminary Hearing / Cognizance"
+    return "Hearing"
+
+
+def summarize_call_description_from_window(window_above: str, full_text: str = "") -> tuple[str, str]:
+    """
+    Extracts and creates a description summarizing what the next call is about
+    based on the available sentences immediately above the next hearing date.
+    Returns (description, stage_group).
+    """
+    if not window_above or not window_above.strip():
+        return "", "Hearing"
+
+    w = window_above.strip()
+    # Strip trailing call preambles repeatedly
+    for _ in range(3):
+        w = re.sub(r"(?i)\b(?:call\s+on|adjourn(?:ed|ment)?\s+to|post(?:ed)?\s+to|re[- ]?list\s+(?:on|to)|fixed\s+for|listed\s+(?:on|to)|next\s+(?:date|hearing)\s*(?:is|on|to)?|hearing\s+on|by|date)\s*[:\-]?\s*$", "", w.strip()).strip()
+        w = re.sub(r"(?:ಮುಂದೂಡಿದೆ|ಕರೆಯಿರಿ|ವಿಚಾರಣೆಗೆ|ಮುಂದಿನ\s*(?:ದಿನಾಂಕ|ವಿಚಾರಣೆಗೆ|ವಿಚಾರಣೆ)|ದಿನಾಂಕ)\s*[:\-]?\s*$", "", w.strip()).strip()
+
+    junk_patterns = [
+        r"(?i)\b(?:hon'\''ble\s+judge|ch\.?\s*no\.?\s*\d+|court\s+hall\s+(?:no\.?\s*)?\d+|spl\.?\s*court|special\s+court)\b",
+        r"(?i)\b(?:member|chairman|president|judge|sheristadar|stenographer|bench\s+clerk)\b",
+        r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ನ್ಯಾಯಾಧೀಶರು|ಸದಸ್ಯರು|ಅಧ್ಯಕ್ಷರು|ಶಿರಸ್ತೇದಾರರು|ನ್ಯಾಯಾಂಗಣ[\-\s]*\d+)(?![\u0C80-\u0CFFa-zA-Z0-9])",
+        r"(?i)\b(?:want\s+of\s+quorum|for\s+want\s+of\s+quorum|quorum|quoram|coram\s+absent)\b",
+        r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಕೋರಂ\s*ಕೊರತೆ|ಕೋರಂ)(?![\u0C80-\u0CFFa-zA-Z0-9])",
+    ]
+
+    # Split into lines and sentences
+    raw_lines = re.split(r"[\n;।\.]+", w)
+    cleaned_candidates = []
+    for line in raw_lines:
+        line_str = line.strip()
+        # Strip bullets/numbering like "1.", "1)", "(1)", "a.", "-", "*"
+        line_str = re.sub(r"^(?:\d+[\.\)\-:]|\([0-9a-zA-Z]+\)|[a-zA-Z][\.\)\-:]|[\-\*•])\s*", "", line_str).strip()
+
+        is_junk = False
+        for jp in junk_patterns:
+            if re.search(jp, line_str):
+                sub_clean = re.sub(jp, "", line_str).strip(" ,.-:")
+                if len(sub_clean) < 4:
+                    is_junk = True
+                    break
+        if is_junk or len(line_str) < 4:
+            continue
+        # Skip pure date lines
+        if re.match(r"^(?:date\s*[:\-]?\s*)?\d{1,2}[./\-]\d{1,2}[./\-]\d{2,4}\.?$", line_str, re.I):
+            continue
+        cleaned_candidates.append(line_str)
+
+    if not cleaned_candidates:
+        return "", "Hearing"
+
+    # Search backwards for a purpose-bearing sentence
+    purpose_indicators = [
+        r"(?i)\b(?:for|to|towards)\s+",
+        r"(?i)\b(?:time\s+(?:prayed|sought|granted|extended|given)|seeks?\s+time|prays?\s+time)\b",
+        r"(?i)\b(?:objections?|report|notice|summons|steps|evidence|witness|hearing|arguments?|orders?|judgment|counter|rejoinder|pleadings?)\b",
+        r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಗಾಗಿ|ಸಲುವಾಗಿ|ಬಗ್ಗೆ|ಸಲ್ಲಿಸಲು|ಹಾಜರುಪಡಿಸಲು|ಮಾಡಲು|ಕೋರಲಾಗಿದೆ|ನೀಡಲಾಗಿದೆ|ಆದೇಶಕ್ಕಾಗಿ|ವರದಿಗಾಗಿ|ವಿಚಾರಣೆಗಾಗಿ)(?![\u0C80-\u0CFFa-zA-Z0-9])",
+        r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಆಕ್ಷೇಪಣೆ|ವರದಿ|ನೋಟಿಸ್|ಸಮನ್ಸ್|ಸಾಕ್ಷಿ|ವಾದ|ವಿಚಾರಣೆ|ಆದೇಶ|ದಾಖಲೆ|ಕ್ರಮ)(?![\u0C80-\u0CFFa-zA-Z0-9])",
+    ]
+
+    selected_sent = None
+    for cand in reversed(cleaned_candidates):
+        for pi in purpose_indicators:
+            if re.search(pi, cand):
+                selected_sent = cand
+                break
+        if selected_sent:
+            break
+
+    if not selected_sent:
+        selected_sent = cleaned_candidates[-1]
+
+    # Clean leading order tags
+    s_clean = re.sub(r"^(?:order\s*[:\-]|ಆದೇಶ\s*[:\-]|ನಡಾವಳಿ\s*[:\-])\s*", "", selected_sent, flags=re.I).strip()
+
+    # Distill into clean canonical description or concise sentence
+    desc = s_clean
+    if re.search(r"ಆಕ್ಷೇಪಣೆ(?:ಗಳನ್ನು)?\s*ಸಲ್ಲಿಸಲು\s*(?:ಕಾಲಾವಕಾಶ|ಸಮಯಾವಕಾಶ)?", s_clean):
+        desc = "Time to file Objections"
+    elif re.search(r"(?i)\b(?:seeks?|prays?|granted|extended|give|given)\s+time\s+to\s+file\s+objections?\b", s_clean):
+        desc = "Time to file Objections"
+    elif re.search(r"(?:ತಹಶೀಲ್ದಾರ್|ಸರ್ವೆ|ಸ್ಥಳ\s*ಪರಿಶೀಲನೆ|ತನಿಖಾ)?\s*ವರದಿ\s*(?:ಸಲ್ಲಿಸಲು|ಬಂದಿರುವುದಿಲ್ಲ|ನಿರೀಕ್ಷೆ|ಸಲ್ಲಿಸಲು\s*ನಿರ್ದೇಶನ)", s_clean):
+        desc = "To submit Report / Await Report"
+    elif re.search(r"(?i)\b(?:submit|await|reminder\s+for)\s+(?:survey|tahsildar|inspection|status)?\s*report\b", s_clean):
+        desc = "To submit Report / Await Report"
+    elif re.search(r"ದಾಖಲೆ(?:ಗಳನ್ನು)?\s*(?:ಹಾಜರುಪಡಿಸಲು|ಸಲ್ಲಿಸಲು|ಒದಗಿಸಲು)", s_clean):
+        desc = "Production of Documents"
+    elif re.search(r"(?i)\b(?:to\s+produce|production\s+of)\s+documents?\b", s_clean):
+        desc = "Production of Documents"
+    elif re.search(r"(?:ಕ್ರಮ\s*ಕೈಗೊಳ್ಳಲು|ಕ್ರಮಕ್ಕೆ)", s_clean) or re.search(r"(?i)\bto\s+take\s+steps\b", s_clean):
+        desc = "To take Steps"
+    elif re.search(r"(?i)\b(?:hearing\s+on\s+i\.?a\.?|orders?\s+on\s+i\.?a\.?|i\.?a\.?\s*hearing)\b", s_clean) or "ಮಧ್ಯಂತರ ಅರ್ಜಿ" in s_clean:
+        desc = "Hearing on IA"
+    elif re.search(r"(?i)\b(?:cross\s+examination|cross\s+of\s+pw|cross\s+of\s+dw|examination\s+of\s+witness)\b", s_clean) or "ಸಾಕ್ಷಿ ವಿಚಾರಣೆ" in s_clean:
+        desc = "Cross Examination of Witness"
+    elif re.search(r"(?i)\b(?:further\s+arguments?|for\s+arguments?|hearing\s+on\s+arguments?)\b", s_clean) or re.search(r"ವಾದ\s*(?:ಮಂಡನೆ|ಆಲಿಕೆ|ಆಲಿಸಲು)", s_clean):
+        desc = "Hearing on Arguments"
+    elif re.search(r"(?i)\bfor\s+(?:orders?|ruling)\b", s_clean) or "ಆದೇಶಕ್ಕಾಗಿ" in s_clean:
+        desc = "For Orders"
+    elif re.search(r"(?i)\bfor\s+judg(?:e)?ment\b", s_clean) or "ತೀರ್ಪಿಗೆ" in s_clean or "ತೀರ್ಪಿಗಾಗಿ" in s_clean:
+        desc = "For Judgment"
+    else:
+        desc = re.sub(r"\s+", " ", s_clean).strip(" ,.-:;")
+        if len(desc) > 85:
+            cut = desc[:85]
+            sp = cut.rfind(" ")
+            desc = (cut[:sp] if sp > 35 else cut) + "…"
+        if desc and desc[0].isascii() and desc[0].islower():
+            desc = desc[0].upper() + desc[1:]
+
+    group = infer_stage_group_from_description(desc)
+    return desc, group
 
 KARNATAKA_DISTRICTS = [
     ("Bengaluru", [r"ಬೆಂಗಳೂರು\s*(?:ನಗರ)?", r"Bangalore\s*(?:Urban)?", r"Bengaluru\s*(?:Urban)?"]),
@@ -1922,7 +2068,9 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
     eval_text = raw_clean_text
 
     assigned_sub_stage = None
+    assigned_stage_group = None
 
+    window_above = ""
     if call_candidates:
         latest_cand = call_candidates[-1]
         target_pos = latest_cand["start"]
@@ -1942,6 +2090,7 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
         # Priority Rule: If there is notice to respondent in the summary of the sub stage, take that only!
         if NOTICE_TO_RESPONDENT_REGEX.search(window_above):
             assigned_sub_stage = "Notice to Respondent"
+            assigned_stage_group = "Notice / Summons / Service"
         else:
             win_candidates = []
             for pattern, stage_label in STAGE_RULES:
@@ -1961,7 +2110,36 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             if win_candidates:
                 # Sort by priority, then proximity closest to hearing date (highest start pos)
                 win_candidates.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
-                assigned_sub_stage = win_candidates[0][3]
+                if win_candidates[0][0] >= 10:
+                    assigned_sub_stage = win_candidates[0][3]
+                    assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage)
+    elif cleaned.get("hearing_date"):
+        hd_val = cleaned["hearing_date"]
+        m_hd = re.search(r"(\d{4})-(\d{2})-(\d{2})", hd_val)
+        if m_hd:
+            y, mth, d = m_hd.group(1), int(m_hd.group(2)), int(m_hd.group(3))
+            pats = [
+                rf"\b0?{d}[./\-]0?{mth}[./\-]{y}\b",
+                rf"\b0?{d}[./\-]0?{mth}[./\-]{y[-2:]}\b",
+                rf"\b{y}[./\-]0?{mth}[./\-]0?{d}\b",
+            ]
+            for p in pats:
+                m_found = re.search(p, raw_clean_text)
+                if m_found:
+                    window_above = raw_clean_text[max(0, m_found.start() - 1000) : m_found.start()]
+                    break
+        if not window_above:
+            window_above = raw_clean_text[-1000:] if raw_clean_text.strip() else text_clean[-1000:]
+    else:
+        window_above = raw_clean_text[-1000:] if raw_clean_text.strip() else text_clean[-1000:]
+
+    # Rule: If there is no matching sub stage, create a description based on the available sentences
+    # above the next hearing date, which summarizes what the next call is about!
+    if not assigned_sub_stage and window_above:
+        desc, grp = summarize_call_description_from_window(window_above, full_text=raw_clean_text)
+        if desc:
+            assigned_sub_stage = desc
+            assigned_stage_group = grp
 
     # Step 2: Fallback to broader prior text before quorum/end if immediate window had no specific match
     if not assigned_sub_stage:
@@ -1976,6 +2154,7 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
 
         if NOTICE_TO_RESPONDENT_REGEX.search(eval_text):
             assigned_sub_stage = "Notice to Respondent"
+            assigned_stage_group = "Notice / Summons / Service"
         else:
             stage_candidates = []
             for pattern, stage_label in STAGE_RULES:
@@ -1992,18 +2171,22 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
 
             if stage_candidates:
                 stage_candidates.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
-                assigned_sub_stage = stage_candidates[0][3]
+                if stage_candidates[0][0] >= 10:
+                    assigned_sub_stage = stage_candidates[0][3]
+                    assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage)
 
     # Step 3: Global fallback
     if not assigned_sub_stage:
         if NOTICE_TO_RESPONDENT_REGEX.search(raw_clean_text) or NOTICE_TO_RESPONDENT_REGEX.search(text):
             assigned_sub_stage = "Notice to Respondent"
+            assigned_stage_group = "Notice / Summons / Service"
         else:
             for pattern, stage_label in STAGE_RULES:
                 if chosen_call_date and stage_label in ("Allowed", "Dismissed", "Disposed", "Case Disposed"):
                     continue
                 if re.search(pattern, text, re.IGNORECASE):
                     assigned_sub_stage = stage_label
+                    assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage)
                     break
 
     # Priority Rule: If incoming ext summary / stage fields mention notice to respondent, take that only!
@@ -2012,18 +2195,37 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             val = str(ext.get(fld) or "")
             if val and NOTICE_TO_RESPONDENT_REGEX.search(val):
                 assigned_sub_stage = "Notice to Respondent"
+                assigned_stage_group = "Notice / Summons / Service"
                 break
 
+    # If incoming ext had a substantive stage/description not already generic:
     if not assigned_sub_stage:
-        assigned_sub_stage = cleaned.get("stage") or "Appearance of Accused"
+        ext_stg = ext.get("stage") or ext.get("currentStage") or ext.get("sub_stage")
+        if ext_stg and ext_stg not in ("", "Hearing", "Other", "Appearance of Accused"):
+            assigned_sub_stage = ext_stg
+            assigned_stage_group = ext.get("stage_group") or ext.get("stageGroup") or infer_stage_group_from_description(ext_stg)
+
+    # Final fallback: create description from broader available sentences
+    if not assigned_sub_stage:
+        fallback_win = window_above or raw_clean_text[-1000:] or text_clean[-1000:]
+        desc, grp = summarize_call_description_from_window(fallback_win, full_text=raw_clean_text)
+        if desc:
+            assigned_sub_stage = desc
+            assigned_stage_group = grp
+        else:
+            assigned_sub_stage = cleaned.get("stage") or "For Further Proceedings"
+            assigned_stage_group = infer_stage_group_from_description(assigned_sub_stage)
+
+    if not assigned_stage_group:
+        assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage) or infer_stage_group_from_description(assigned_sub_stage)
 
     # Mark the sub stage, then mark the current stage value (stage group) based on it
     cleaned["stage"] = assigned_sub_stage
     cleaned["sub_stage"] = assigned_sub_stage
     cleaned["currentStage"] = assigned_sub_stage
     cleaned["current_stage"] = assigned_sub_stage
-    cleaned["stage_group"] = STAGE_TO_GROUP.get(assigned_sub_stage, "Hearing")
-    cleaned["stageGroup"] = cleaned["stage_group"]
+    cleaned["stage_group"] = assigned_stage_group
+    cleaned["stageGroup"] = assigned_stage_group
 
     # 9. Restoration of Land:
     # Rule: Check if land is restored or not; for pending cases the land is not restored ("No").
