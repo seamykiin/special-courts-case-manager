@@ -1575,6 +1575,21 @@ body.mode-disposed {
   height: 34px !important;
   font-size: 12px !important;
 }
+.grid .field textarea,
+.middle-paned-layout .grid .field textarea {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  min-height: 68px !important;
+  font-size: 11.5px !important;
+  font-family: inherit !important;
+  padding: 6px 8px !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 4px !important;
+  resize: vertical !important;
+  line-height: 1.4 !important;
+}
 .middle-paned-layout .panel {
   padding: 16px 18px !important;
   box-sizing: border-box !important;
@@ -40104,12 +40119,14 @@ function reconcileWorkflowValue(existing, value) {
       }
 
       function exportCaseListAsCsv(cases, filename) {
-        const headers = ["Sl.", "Case No.", "Type", "Court Hall", "Filing Year", "Status", "Next Hearing / Dispose Date", "Current Stage", "Stage Group", "Extent", "Unit", "Survey No", "Village", "Taluk", "District", "Entry Date"];
+        const headers = ["Sl.", "Case No.", "Type", "Court Hall", "Applicants", "Respondents", "Filing Year", "Status", "Next Hearing / Dispose Date", "Current Stage", "Stage Group", "Extent", "Unit", "Survey No", "Village", "Taluk", "District", "Entry Date"];
         const rows = cases.map((c, i) => [
           i + 1,
           `"${(c.caseNo || c.existing_case_no || "").replace(/"/g, '""')}"`,
           c.type || c.case_type || "",
           c.court || ("Hall " + (c.hall || "I")),
+          `"${(c.applicants || "").replace(/"/g, '""')}"`,
+          `"${(c.respondents || "").replace(/"/g, '""')}"`,
           c.filedYear || c.filing_year || "",
           c.status || c.caseMode || "Pending",
           c.hearing_date || c.nextHearing || c.dispose_date || c.disposedDate || "",
@@ -40238,6 +40255,12 @@ function reconcileWorkflowValue(existing, value) {
 
         const cnrEl = document.getElementById("fCnr");
         if (cnrEl) cnrEl.value = data.cnr || "";
+
+        const appEl = document.getElementById("fApplicants");
+        if (appEl) appEl.value = data.applicants || data.applicant || "";
+
+        const respEl = document.getElementById("fRespondents");
+        if (respEl) respEl.value = data.respondents || data.respondent || "";
 
         const sgroupEl = document.getElementById("fStageGroup");
         const stageVal = data.currentStage || data.stage || data.sub_stage || "";
@@ -40952,6 +40975,14 @@ function reconcileWorkflowValue(existing, value) {
                           <option value="Court Hall No.2">Court Hall No.2</option>
                         </select>
                       </div>
+                      <div style="grid-column: span 2;">
+                        <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Applicants (English)</label>
+                        <input type="text" id="scanFldApplicants" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
+                      </div>
+                      <div style="grid-column: span 2;">
+                        <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Respondents (English)</label>
+                        <input type="text" id="scanFldRespondents" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
+                      </div>
                       <div>
                         <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Current Stage</label>
                         <input type="text" id="scanFldStage" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
@@ -41069,6 +41100,8 @@ function reconcileWorkflowValue(existing, value) {
 
           const fCaseNo = document.getElementById("scanFldCaseNo");
           const fCourt = document.getElementById("scanFldCourt");
+          const fApplicants = document.getElementById("scanFldApplicants");
+          const fRespondents = document.getElementById("scanFldRespondents");
           const fStage = document.getElementById("scanFldStage");
           const fHearing = document.getElementById("scanFldHearing");
           const fExtent = document.getElementById("scanFldExtent");
@@ -41080,6 +41113,8 @@ function reconcileWorkflowValue(existing, value) {
           const chFromFn = extractCourtHallFromFilename(cur.name || cur.path || cur.file_path || "");
           if (fCaseNo) fCaseNo.value = extractCaseNumberOnly(cur.caseNo || cur.existing_case_no || "");
           if (fCourt) fCourt.value = chFromFn || cur.court || "Court Hall No.1";
+          if (fApplicants) fApplicants.value = cur.applicants || cur.applicant || "";
+          if (fRespondents) fRespondents.value = cur.respondents || cur.respondent || "";
           if (fStage) fStage.value = cur.currentStage || cur.stage || "Appearance";
           if (fHearing) fHearing.value = cur.nextHearing || cur.hearing_date || "";
           if (fExtent) fExtent.value = cur.landExtent || cur.extent || "01";
@@ -41094,6 +41129,8 @@ function reconcileWorkflowValue(existing, value) {
           const cur = scannedCases[selectedIdx];
           const fCaseNo = document.getElementById("scanFldCaseNo");
           const fCourt = document.getElementById("scanFldCourt");
+          const fApplicants = document.getElementById("scanFldApplicants");
+          const fRespondents = document.getElementById("scanFldRespondents");
           const fStage = document.getElementById("scanFldStage");
           const fHearing = document.getElementById("scanFldHearing");
           const fExtent = document.getElementById("scanFldExtent");
@@ -41105,6 +41142,8 @@ function reconcileWorkflowValue(existing, value) {
             cur.existing_case_no = cur.caseNo;
           }
           if (fCourt) cur.court = fCourt.value;
+          if (fApplicants) { cur.applicants = fApplicants.value; cur.applicant = fApplicants.value; }
+          if (fRespondents) { cur.respondents = fRespondents.value; cur.respondent = fRespondents.value; }
           if (fStage) { cur.currentStage = fStage.value; cur.stage = fStage.value; }
           if (fHearing) { cur.nextHearing = fHearing.value; cur.hearing_date = fHearing.value; }
           if (fExtent) { cur.landExtent = fExtent.value; cur.extent = fExtent.value; }
@@ -41118,7 +41157,7 @@ function reconcileWorkflowValue(existing, value) {
           if (titleEl) titleEl.textContent = cur.caseNo;
         }
 
-        ["scanFldCaseNo", "scanFldCourt", "scanFldStage", "scanFldHearing", "scanFldExtent", "scanFldSurvey", "scanFldVillage"].forEach(id => {
+        ["scanFldCaseNo", "scanFldCourt", "scanFldApplicants", "scanFldRespondents", "scanFldStage", "scanFldHearing", "scanFldExtent", "scanFldSurvey", "scanFldVillage"].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.oninput = syncActiveCaseFromInputs;
         });
@@ -41663,7 +41702,7 @@ function reconcileWorkflowValue(existing, value) {
           }
 
           if (q) {
-            const blob = `${c.caseNo || ''} ${c.existing_case_no || ''} ${c.cnr || ''} ${c.village || ''} ${c.taluk || ''} ${c.district || ''} ${c.surveyNo || ''} ${c.survey_no || ''} ${c.currentStage || ''} ${c.stage || ''}`.toLowerCase();
+            const blob = `${c.caseNo || ''} ${c.existing_case_no || ''} ${c.cnr || ''} ${c.applicants || ''} ${c.respondents || ''} ${c.village || ''} ${c.taluk || ''} ${c.district || ''} ${c.surveyNo || ''} ${c.survey_no || ''} ${c.currentStage || ''} ${c.stage || ''}`.toLowerCase();
             if (!blob.includes(q)) return false;
           }
           return true;
@@ -41884,7 +41923,20 @@ function reconcileWorkflowValue(existing, value) {
               </div>
             </div>
 
-            <!-- SECTION 2: CASE STATUS & STAGE -->
+            <!-- SECTION 2: PARTIES (APPLICANTS & RESPONDENTS) -->
+            <div class="case-section-header">Parties (Applicants &amp; Respondents)</div>
+            <div class="grid">
+              <div class="field">
+                <label>Applicants (Names &amp; Addresses in English)</label>
+                <textarea id="fApplicants" rows="3" placeholder="Applicant names and addresses in English..."></textarea>
+              </div>
+              <div class="field">
+                <label>Respondents (Names &amp; Addresses in English)</label>
+                <textarea id="fRespondents" rows="3" placeholder="Respondent names and addresses in English..."></textarea>
+              </div>
+            </div>
+
+            <!-- SECTION 3: CASE STATUS & STAGE -->
             <div class="case-section-header">${isDisposed ? 'Case Status & Disposal Details' : 'Case Status & Stage'}</div>
             <div class="grid">
               <div class="field">
@@ -41927,7 +41979,7 @@ function reconcileWorkflowValue(existing, value) {
               `}
             </div>
 
-            <!-- SECTION 3: LAND EXTENT -->
+            <!-- SECTION 4: LAND EXTENT -->
             <div class="case-section-header">Land Extent</div>
             <div class="grid">
               <div class="field">
@@ -41942,7 +41994,7 @@ function reconcileWorkflowValue(existing, value) {
               </div>
             </div>
 
-            <!-- SECTION 4: PROPERTY IDENTIFIERS -->
+            <!-- SECTION 5: PROPERTY IDENTIFIERS -->
             <div class="case-section-header">Property Identifiers</div>
             <div class="grid">
               <div class="field">
@@ -41963,7 +42015,7 @@ function reconcileWorkflowValue(existing, value) {
               </div>
             </div>
 
-            <!-- SECTION 5: PROPERTY LOCATION (CASCADING GEO) -->
+            <!-- SECTION 6: PROPERTY LOCATION (CASCADING GEO) -->
             <div class="case-section-header">Property Location (Karnataka GEO)</div>
             <div class="grid">
               <div class="field">
@@ -42136,6 +42188,10 @@ function reconcileWorkflowValue(existing, value) {
           activeEditCaseId = null;
           document.getElementById("fCaseNo").value = "";
           document.getElementById("fCnr").value = "";
+          const appEl = document.getElementById("fApplicants");
+          if (appEl) appEl.value = "";
+          const respEl = document.getElementById("fRespondents");
+          if (respEl) respEl.value = "";
           document.getElementById("fExtent").value = "";
           document.getElementById("fSurveyNo").value = "";
           document.getElementById("fWardNo").value = "";
@@ -42192,6 +42248,8 @@ function reconcileWorkflowValue(existing, value) {
             existing_case_no: rawNo,
             fullCaseNo: fullCaseNo,
             cnr: document.getElementById("fCnr")?.value.trim() || "",
+            applicants: document.getElementById("fApplicants")?.value.trim() || "",
+            respondents: document.getElementById("fRespondents")?.value.trim() || "",
             filedYear: year,
             filing_year: year,
             stageGroup: document.getElementById("fStageGroup")?.value || (STAGE_TO_GROUP[document.getElementById("fCurrentStage")?.value] || ""),

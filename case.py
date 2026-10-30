@@ -68,6 +68,8 @@ FIELDS = [
     ("case_type", "Case Type"),
     ("existing_case_no", "Existing Case No. (number only)"),
     ("filing_year", "Filing Year"),
+    ("applicants", "Applicants & Addresses (in English)"),
+    ("respondents", "Respondents & Addresses (in English)"),
     ("stage_group", "Stage Group"),
     ("stage", "Current Stage / Sub Stage"),
     ("restoration", "Restoration of Land"),
@@ -334,6 +336,8 @@ Extract the relevant case details into a valid JSON object matching these exact 
   "case_type": "One of: LGC(G), LGC(P), LGC(T), LGC(S), RP, Misc (e.g. from LGC(G) or ಎಲ್.ಜಿ.ಸಿ.(ಜಿ), extract 'LGC(G)'; from LGC(P) or ಎಲ್.ಜಿ.ಸಿ.(ಪಿ), extract 'LGC(P)')",
   "existing_case_no": "Existing Case number (NUMBER ONLY, without LGC prefix and without year). Located directly BELOW the Court Hall No. (ನ್ಯಾಯಾಂಗಣ-1/2 or CH. No.1/2). For example, from 'ಎಲ್.ಜಿ.ಸಿ.(ಜಿ) ನಂ. 1466/2024', extract strictly '1466'. Do not include the year or prefix.",
   "filing_year": "4-digit year extracted directly from the date at the top of the Order Sheet ('ಆದೇಶ ಪತ್ರ' or 'ಆರ್ಡರ್ ಶೀಟ್' / 'Order Sheet') section (e.g. from 'ದಿನಾಂಕ 22ನೇ ಜುಲೈ 2024', extract '2024'). If no order sheet is present, use the year from the case number or petition date.",
+  "applicants": "Full names and complete addresses of all applicants/petitioners/complainants in English. Translate Kannada relationships (ಕೋಂ/ಹೆಂಡತಿ -> W/o, ಬಿನ್/ಮಗ -> S/o, ಮಗಳು -> D/o, ಲೇಟ್/ದಿವಂಗತ -> Late) and designations/divisions (ಗ್ರಾಮ -> Village, ಹೋಬಳಿ -> Hobli, ತಾಲ್ಲೂಕು -> Taluk, ಜಿಲ್ಲೆ -> District) into English.",
+  "respondents": "Full names and complete addresses of all respondents/accused/defendants in English, preserving numbering 1, 2, 3... (e.g. '1. Name W/o ..., Village, Hobli, Taluk, District. 2. Name ...'). Translate Kannada relationships, titles (Village Accountant, Executive Officer, Tahsildar & Taluk Executive Magistrate), and revenue divisions into English.",
   "stage_group": "Must be one of the official 20 stage groups: Filing & Scrutiny, Preliminary Hearing / Cognizance, Notice / Summons / Service, Appearance, Objections / Pleadings, Reports / Verification, Evidence, Criminal Process, Hearing, Arguments, Judgment / Final Order, Possession / Execution / Compliance, Compliance during pendency of Proceeding, Compliance Post Disposal, Stayed Matters, Closed / Disposal, Orders, Charge/Plea, HBC, 313 Cr.P.C /351 BNSS Statement",
   "stage": "The exact current procedural stage mentioned in the daily order or margin note (e.g. Notice to Respondent, Summons to Accused, Appearance of Respondent, Hearing on objection, Objection Statement, Sworn Statement, Complaint Evidence, Arguments, Hearing, Orders, Judgement, Await Report, Status Report, Compliance Report, Bailable Warrant, Await NBW, Disposed). CRITICAL RULE: If the operative order or sub-stage summary directs or mentions notice to respondent (e.g. 'issue notice to respondent', 're-issue notice to respondent', 'await notice to respondent', 'notice to respondent in Form IV', 'ಎದುರುದಾರರಿಗೆ ನೋಟಿಸ್'), strictly extract 'Notice to Respondent' as the stage and 'Notice / Summons / Service' as stage_group. If there is no standard matching sub-stage, create a clear description based on the available sentences above the next hearing date summarizing what the next call is about.",
   "restoration": "Restoration of land status if stated: Yes, No, Partial, or N/A",
@@ -1221,6 +1225,132 @@ def transliterate_kannada(text: str) -> str:
     out = ''.join(res)
     out = re.sub(r'([aeiou])\1+', r'\1', out)
     return out.strip().title()
+
+
+def translate_party_text(text: str) -> str:
+    """Translates Karnataka court party names, relationships, designations, and addresses from Kannada to English."""
+    if not text:
+        return ""
+    t = str(text).strip()
+    t = re.sub(r'[\u200b\u200c\u200d\ufeff]', '', t)
+    t = re.sub(r'^[\s\"\'\”\“\‘\’\-:\.,]+', '', t)
+
+    # 1. Replace known official / legal titles, relationship markers, and revenue terms
+    replacements = [
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಕೋಂ|ಕೋಮ|ಕೋ೦|ಹೆಂಡತಿ)(?![\u0C80-\u0CFFa-zA-Z0-9])", "W/o"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಬಿನ್|ಮಗ)(?![\u0C80-\u0CFFa-zA-Z0-9])", "S/o"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಡಿ/?ಕೋಂ|ಡಿ/?ಕೋ೦|ಮಗಳು)(?![\u0C80-\u0CFFa-zA-Z0-9])", "D/o"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ವೈ|ದಿವಂಗತ|ಲೇಟ್)(?![\u0C80-\u0CFFa-zA-Z0-9])", "Late"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಪಂಚಾಯ್ತಿ|ಪಯಾಯ್ತಿ)?\s*ಗ್ರಾಮೀಣಾಭಿವೃದ್ಧಿ\s*ಅಧಿಕಾರಿಗಳು?(?![\u0C80-\u0CFFa-zA-Z0-9])", "Panchayat Development Officer (PDO)"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಗ್ರಾಮಲೆಕ್ಕಿಗರು?(?:\s*ಅಧಿಕಾರಿಗಳು?)?(?![\u0C80-\u0CFFa-zA-Z0-9])", "Village Accountant"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಕಾರ್ಯ\s*ನಿರ್ವಾಹಕ\s*ಅಧಿಕಾರಿಗಳು?(?![\u0C80-\u0CFFa-zA-Z0-9])", "Executive Officer"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ತಹಶೀಲ್ದಾರರು\s*(?:ಹಾಗೂ\s*)?ತಾಲ್ಲೂಕು\s*ದಂಡಾಧಿಕಾರಿಗಳು?(?![\u0C80-\u0CFFa-zA-Z0-9])", "Tahsildar & Taluk Executive Magistrate"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ತಹಶೀಲ್ದಾರರು?(?![\u0C80-\u0CFFa-zA-Z0-9])", "Tahsildar"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಗ್ರಾಮ\s*ಪಂಚಾಯ್ತಿ?(?![\u0C80-\u0CFFa-zA-Z0-9])", "Gram Panchayat"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ತಾಲ್ಲೂಕು\s*ಪಂಚಾಯತ್?(?![\u0C80-\u0CFFa-zA-Z0-9])", "Taluk Panchayat"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಕಂದಾಯ(?![\u0C80-\u0CFFa-zA-Z0-9])", "Revenue"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಮುಖ್ಯ\s*ರಸ್ತೆ(?![\u0C80-\u0CFFa-zA-Z0-9])", "Main Road"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ರಸ್ತೆ(?![\u0C80-\u0CFFa-zA-Z0-9])", "Road"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(ಗ್ರಾಮ|ಗಾಮ)(?![\u0C80-\u0CFFa-zA-Z0-9])", "Village"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಹೋಬಳಿ(?![\u0C80-\u0CFFa-zA-Z0-9])", "Hobli"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(ತಾಲ್ಲೂಕು|ತಾಲೂಕು|ತಾಲ್ಲೂರು)(?![\u0C80-\u0CFFa-zA-Z0-9])", "Taluk"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಜಿಲ್ಲೆ(?![\u0C80-\u0CFFa-zA-Z0-9])", "District"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ದೇವಸ್ಥಾನ(?![\u0C80-\u0CFFa-zA-Z0-9])", "Temple"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(ನಂ\.?|ಸಂ\.?)(?![\u0C80-\u0CFFa-zA-Z0-9])", "No."),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ದಕ್ಷಿಣ(?![\u0C80-\u0CFFa-zA-Z0-9])", "South"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಉತ್ತರ(?![\u0C80-\u0CFFa-zA-Z0-9])", "North"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಪೂರ್ವ(?![\u0C80-\u0CFFa-zA-Z0-9])", "East"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಪಶ್ಚಿಮ(?![\u0C80-\u0CFFa-zA-Z0-9])", "West"),
+    ]
+    for pat, rep in replacements:
+        t = re.sub(pat, rep, t)
+
+    lines = t.split("\n")
+    cleaned_lines = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        line = re.sub(r'^[a-zA-Z\s]{1,4}(?=\d+[\.,])', '', line).strip()
+        line = re.sub(r'^(\d+)[,](?=\s*)', r'\1.', line)
+
+        words = re.split(r'(\s+|[,.:;/\-\(\)])', line)
+        out_words = []
+        for w in words:
+            if re.search(r'[\u0C80-\u0CFF]', w):
+                out_words.append(transliterate_kannada(w))
+            else:
+                out_words.append(w)
+        cline = "".join(out_words)
+        cline = re.sub(r"\s+", " ", cline).strip()
+        if cline:
+            cleaned_lines.append(cline)
+
+    full = "\n".join(cleaned_lines)
+    if re.search(r'(?:^|\n)\s*1[\.\)]\s*', full):
+        parts = re.split(r'(?:^|\n)\s*(?=\d+[\.\)]\s*)', full)
+        clean_parties = []
+        for p in parts:
+            p_cl = re.sub(r'\s+', ' ', p).strip()
+            if p_cl:
+                clean_parties.append(p_cl)
+        return "\n".join(clean_parties)
+    else:
+        return re.sub(r'\s+', ' ', full).strip()
+
+
+def extract_parties_from_text(text: str) -> tuple[str, str]:
+    """Extracts applicant and respondent text blocks from court document text."""
+    if not text:
+        return "", ""
+    t = text.replace("\r", "")
+
+    # Find separator -ವಿರುದ್ಧ- / vs / v/s
+    sep_match = re.search(r"(?:-?\s*ವಿರುದ್ಧ\s*-?|-?\s*ವಿರುದ್ದ\s*-?|\bvs\.?\b|\bv/s\b|\bversus\b)", t, re.IGNORECASE)
+    if not sep_match:
+        sep_match = re.search(r"(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)", t, re.IGNORECASE)
+
+    # Find end of parties: ಆದೇಶ ಪತ್ರ / ದಿನಾಂಕ / ವಿಷಯ / Order Sheet
+    end_match = re.search(r"(?:ಆದೇಶ\s*ಪತ್ರ|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು)", t, re.IGNORECASE)
+    end_pos = end_match.start() if end_match else len(t)
+
+    app_raw = ""
+    resp_raw = ""
+    if sep_match:
+        app_part = t[:sep_match.start()]
+        resp_part = t[sep_match.end():end_pos]
+
+        # Clean document/tribunal/case number headers from applicant part
+        lines = app_part.strip().split("\n")
+        last_hdr_idx = -1
+        for i, line in enumerate(lines):
+            if re.search(r"(?:ಎಲ್.*?ಜಿ.*?ಸಿ|L\.?G\.?C|ನ್ಯಾಯಾಂಗಣ|Court\s*Hall|ನಂ\.?\s*\d+)", line, re.I):
+                last_hdr_idx = i
+            elif re.search(r"(?:ಕರ್ನಾಟಕ|ಕಂದಾಯ\s*ಭವನ|ಕೆಂಪೇಗೌಡ|ವಿಶೇಷ\s*ನ್ಯಾಯಾಲಯ|ಬೆಂಗಳೂರು)", line, re.I):
+                if last_hdr_idx == -1 or last_hdr_idx < i:
+                    last_hdr_idx = i
+
+        clean_lines = lines[last_hdr_idx + 1:] if (last_hdr_idx != -1 and last_hdr_idx < len(lines) - 1) else lines
+        app_clean_lines = []
+        for l in clean_lines:
+            l_s = l.strip()
+            if not l_s or re.search(r"(?:ಕರ್ನಾಟಕ|ಕಂದಾಯ|ನ್ಯಾಯಾಲಯ|ನ್ಯಾಯಾಂಗಣ|Court|LGC|ಎಲ್.*?ಜಿ.*?ಸಿ|ಅರ್ಜಿದಾರರು|ದೂರುದಾರರು|complainant|applicant)", l_s, re.I) or re.match(r"^[\d\s.,\-_/]+$", l_s):
+                continue
+            app_clean_lines.append(l_s)
+        app_raw = "\n".join(app_clean_lines)
+
+        # Clean labels from respondent part
+        resp_clean = re.sub(r"(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)\s*[:\-]?", "", resp_part, flags=re.IGNORECASE)
+        resp_clean = re.sub(r"(?:ಅರ್ಜಿದಾರರು|ದೂರುದಾರರು|ಫಿರ್ಯಾದುದಾರರು|ವಾದಿಗಳು|ವಾದಿ|complainant|applicant|petitioner)\s*[:\-]?", "", resp_clean, flags=re.IGNORECASE)
+        resp_raw = resp_clean.strip()
+    else:
+        app_hdr = re.search(r"(?:ಅರ್ಜಿದಾರರು|ದೂರುದಾರರು|complainant|applicant)\s*[:\-]?", t, re.IGNORECASE)
+        if app_hdr:
+            app_raw = t[app_hdr.end():end_pos].strip()
+
+    app_clean = translate_party_text(app_raw)
+    resp_clean = translate_party_text(resp_raw)
+    return app_clean, resp_clean
 
 
 def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str = "") -> dict:
@@ -2251,6 +2381,30 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
 
     cleaned["restorationOfLand"] = cleaned["restoration"]
 
+    # 10. Applicants & Respondents (Names & Addresses in English)
+    app_val = cleaned.get("applicants") or cleaned.get("applicant") or ""
+    resp_val = cleaned.get("respondents") or cleaned.get("respondent") or ""
+
+    if not app_val or not resp_val:
+        ext_app, ext_resp = extract_parties_from_text(raw_combined)
+        if not app_val and ext_app:
+            app_val = ext_app
+        if not resp_val and ext_resp:
+            resp_val = ext_resp
+
+    if app_val:
+        cleaned["applicants"] = translate_party_text(str(app_val))
+    else:
+        cleaned["applicants"] = ""
+
+    if resp_val:
+        cleaned["respondents"] = translate_party_text(str(resp_val))
+    else:
+        cleaned["respondents"] = ""
+
+    cleaned["applicant"] = cleaned["applicants"]
+    cleaned["respondent"] = cleaned["respondents"]
+
     return cleaned
 
 
@@ -2380,7 +2534,7 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
                         target["stage_group"] = ext["stage_group"]
                 elif k in ("extent", "unit") and v:
                     target[k] = v
-                elif k in ("survey_no", "ward_no", "village", "taluk", "hobli", "court", "case_type") and v and not target.get(k):
+                elif k in ("survey_no", "ward_no", "village", "taluk", "hobli", "court", "case_type", "applicants", "respondents") and v and not target.get(k):
                     target[k] = v
             grouped_map[key]["pages"].append(item.get("name", ""))
             grouped_map[key]["paths"].append(item.get("path", ""))
@@ -2868,14 +3022,14 @@ class CaseApp(_TkBase):
             id INTEGER PRIMARY KEY AUTOINCREMENT, case_no TEXT NOT NULL, existing_case_no TEXT,
             filing_year TEXT, stage_group TEXT, case_type TEXT, court TEXT, filing_date TEXT,
             hearing_date TEXT, dispose_date TEXT, case_status TEXT DEFAULT 'Pending', stage TEXT,
-            restoration TEXT, extent TEXT, unit TEXT, survey_no TEXT, ward_no TEXT, pid_no TEXT,
+            restoration TEXT, applicants TEXT, respondents TEXT, extent TEXT, unit TEXT, survey_no TEXT, ward_no TEXT, pid_no TEXT,
             tax_no TEXT, district TEXT, taluk TEXT, hobli TEXT, village TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
         )""")
         self.db.execute("""CREATE TABLE IF NOT EXISTS custom_options (field_key TEXT NOT NULL, field_value TEXT NOT NULL, UNIQUE(field_key, field_value))""")
         self.db.commit()
 
         columns = {r["name"] for r in self.db.execute("PRAGMA table_info(cases)")}
-        for name in ("existing_case_no", "filing_year", "stage_group", "dispose_date", "case_status"):
+        for name in ("existing_case_no", "filing_year", "stage_group", "dispose_date", "case_status", "applicants", "respondents"):
             if name not in columns:
                 self.db.execute(f"ALTER TABLE cases ADD COLUMN {name} TEXT")
         self.db.execute("UPDATE cases SET existing_case_no=case_no WHERE existing_case_no IS NULL OR existing_case_no=''")
@@ -3041,11 +3195,18 @@ class CaseApp(_TkBase):
         card.bind("<Configure>", lambda _e: self.form_canvas.configure(scrollregion=self.form_canvas.bbox("all")))
         self.form_canvas.bind("<Configure>", lambda e: self.form_canvas.itemconfigure(form_window, width=e.width))
 
-        section_names = {0: "CASE DETAILS", 4: "CASE STATUS & STAGE", 7: "LAND EXTENT", 9: "PROPERTY IDENTIFIERS", 11: "PROPERTY LOCATION"}
+        section_names = {
+            0: "CASE DETAILS",
+            4: "PARTIES (APPLICANTS & RESPONDENTS)",
+            7: "CASE STATUS & STAGE",
+            10: "LAND EXTENT",
+            12: "PROPERTY IDENTIFIERS",
+            14: "PROPERTY LOCATION"
+        }
         for row, title in section_names.items():
             lbl = ttk.Label(card, text=title, style="Section.TLabel")
             lbl.grid(row=row, column=0, columnspan=4, sticky="w", pady=(7 if row else 0, 3))
-            if row == 4:
+            if row == 7:
                 self.dynamic_labels["section_status"] = lbl
 
         self.dup_lbl = ttk.Label(card, textvariable=self.duplicate_status, foreground="#dc2626", font=(FONT_FAMILY, 9, "bold"))
@@ -3053,12 +3214,15 @@ class CaseApp(_TkBase):
 
         rowmap = {
             "court": 1, "case_type": 1, "existing_case_no": 2, "filing_year": 2,
-            "stage_group": 5, "stage": 5, "restoration": 5, "hearing_date": 6,
-            "extent": 8, "unit": 8, "survey_no": 10, "ward_no": 10, "pid_no": 10, "tax_no": 10,
-            "district": 12, "taluk": 12, "hobli": 12, "village": 12
+            "applicants": 5, "respondents": 5,
+            "stage_group": 8, "stage": 8, "restoration": 8, "hearing_date": 9,
+            "extent": 11, "unit": 11,
+            "survey_no": 13, "ward_no": 13, "pid_no": 13, "tax_no": 13,
+            "district": 15, "taluk": 15, "hobli": 15, "village": 15
         }
         colmap = {
             "court": 0, "case_type": 1, "existing_case_no": 0, "filing_year": 2,
+            "applicants": 0, "respondents": 2,
             "stage_group": 0, "stage": 1, "restoration": 3, "hearing_date": 0,
             "extent": 0, "unit": 1,
             "survey_no": 0, "ward_no": 1, "pid_no": 2, "tax_no": 3,
@@ -3067,7 +3231,7 @@ class CaseApp(_TkBase):
 
         for key, label in FIELDS:
             row, col = rowmap[key], colmap[key]
-            colspan = 2 if key in ("existing_case_no", "stage") else 1
+            colspan = 2 if key in ("existing_case_no", "stage", "applicants", "respondents") else 1
             cell = ttk.Frame(card)
             cell.grid(row=row, column=col, columnspan=colspan, sticky="ew", padx=(0, 12), pady=(0, 7))
             lbl_widget = ttk.Label(cell, text=label)
@@ -3110,7 +3274,7 @@ class CaseApp(_TkBase):
         self._build_pdf_viewer_pane()
 
         buttons = ttk.Frame(card)
-        buttons.grid(row=13, column=0, columnspan=4, sticky="ew", pady=(6, 0))
+        buttons.grid(row=16, column=0, columnspan=4, sticky="ew", pady=(6, 0))
         self._button(buttons, "+ Save Entry", self.save, primary=True).pack(side="left", padx=(0, 6))
         self.form_pdf_btn = self._button(buttons, "📄 Compare PDF", self.toggle_pdf_side_by_side)
         self.form_pdf_btn.pack(side="left", padx=3)
