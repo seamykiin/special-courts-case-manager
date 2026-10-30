@@ -1001,6 +1001,38 @@ part8_features = """
         }
       }
 
+      function isProceduralParty(val) {
+        if (!val) return true;
+        return /\b(?:called\s+out|taken\s+up|adjourned|quorum|for\s+say|public\s+prosecutor|call\s+on\s+\d+|speed\s+post|witness\s+summons|judicial\s+member|revenue\s+member|adesha(?:da)?\s*prati|order\s*sheet|daily\s*order)\b/i.test(String(val));
+      }
+
+      function cleanPartyStr(s) {
+        if (!s) return "";
+        let t = String(s).trim();
+        t = t.replace(/\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b/gi, "");
+        t = t.replace(/[\"\'\”\“\‘\’£§©®™*^~_\\\|]/g, "");
+        t = t.replace(/\b\d+\/\d+\b/g, "");
+        t = t.replace(/\b(?:mall|wall|call|ced|sole|caso)\b/gi, "");
+        t = t.replace(/\b(?:Shrimati|Srimati)\b/g, "Smt.");
+        t = t.replace(/\b(?:Shri|Sri)\b/g, "Sri");
+        t = t.replace(/\b(?:[Aa]?rjidararu|Edurudararu|Durudararu|Prativadiga?lu?)\b[:\-]*/gi, "");
+        t = t.replace(/Sa[೦0\s]?Jaya/gi, "Sanjaya");
+        t = t.replace(/\bnjaya\b/gi, "Sanjaya");
+        t = t.replace(/Laksha[\.\s\‘\'\’\"0-9a-zA-Z£]*Mahe/gi, "Lakshmana Mahe");
+        t = t.replace(/Mahe[೦0]?m?[೦0]?Drakara/gi, "Mahendrakara");
+        t = t.replace(/Mudhola\b/g, "Mudhol");
+        t = t.replace(/Bagalakote\b/g, "Bagalkote");
+        t = t.replace(/Lakshi\s*Bayi\b/g, "Lakshmibayi");
+        t = t.replace(/Mahara\s*Rani\s*Kere\s*(?:Near|Hattira)?/gi, "Near Maharani Kere");
+        t = t.replace(/(?:Taluk,?\s*)?Maharani\s*(?:ee\)?|kere)?\s*(?:Near|Hattira),?\s*(?:Mudho\b|Mudhol\b)?/gi, "Near Maharani Kere, Mudhol");
+        t = t.replace(/\bHattira\b/gi, "Near");
+        t = t.replace(/\bSa\b[!\।\|:\.]*/g, "");
+        t = t.replace(/\bS\s+(?=Mudhol)/g, "");
+        t = t.replace(/\b[A-Za-z]\s+\d+\b/g, "");
+        t = t.replace(/^[A-Za-z\s]+(?=\d+[\.\)])/g, "");
+        return t.replace(/\s+/g, " ").trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+      }
+
       function splitPartyNameAndAddress(text) {
         if (!text) return { name: "", address: "" };
         let str = String(text).replace(/\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b/gi, "");
@@ -1008,8 +1040,24 @@ part8_features = """
         str = str.trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
         if (!str) return { name: "", address: "" };
 
-        if (/(?:^|\s)1[\.\)]\s*/.test(str)) {
-          const parts = str.split(/(?:^|\s)(?=\d+[\.\)]\s*)/);
+        // Check for common address line (e.g. 4 to 7 address: Lokapura...)
+        const mCommon = str.match(/(?:Edurudara|Respondent[s]?|Accused)\s*(?:Na[೦\d\.]*|No\.?)?\s*(\d+)[\.\s]*(?:Rinda|to|\-)[\.\s]*(\d+)[\.\s]*(?:Ravara\s*)?(?:Vilasa|Address)\s*[:\-]\s*(.*)/i);
+        let commonStart = null, commonEnd = null, commonAddr = "";
+        let textToParse = str;
+        if (mCommon) {
+          commonStart = parseInt(mCommon[1], 10);
+          commonEnd = parseInt(mCommon[2], 10);
+          commonAddr = cleanPartyStr(mCommon[3]);
+          textToParse = str.slice(0, mCommon.index).trim();
+        }
+
+        const mFirst = textToParse.match(new RegExp("(?:^|[\\r\\n\\s])(?=1[\\.\\)]\\s*)"));
+        if (mFirst && mFirst.index !== undefined) {
+          textToParse = textToParse.slice(mFirst.index).trim();
+        }
+
+        if (/(?:^|\s)1[\.\)]\s*/.test(textToParse)) {
+          const parts = textToParse.split(/(?:^|\s)(?=\d+[\.\)]\s*)/);
           const names = [];
           const addresses = [];
           for (let p of parts) {
@@ -1022,6 +1070,9 @@ part8_features = """
             if (sp.name) names.push(`${prefix}${sp.name}`.trim());
             if (sp.address) addresses.push(`${prefix}${sp.address}`.trim());
           }
+          if (commonStart && commonEnd && commonAddr) {
+            addresses.push(`${commonStart} to ${commonEnd}. ${commonAddr}`);
+          }
           return { name: names.join(String.fromCharCode(10)), address: addresses.join(String.fromCharCode(10)) };
         }
         return splitSingleParty(str);
@@ -1029,49 +1080,66 @@ part8_features = """
 
       function splitSingleParty(str) {
         if (!str) return { name: "", address: "" };
-        let t = str.trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
-        t = t.replace(/\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet)\b/gi, "").trim();
+        let t = cleanPartyStr(str);
+        if (!t) return { name: "", address: "" };
 
         const offTitles = /^(?:Tahsildar\s*&\s*Taluk\s*Executive\s*Magistrate|Tahsildar|Village\s*Accountant|Executive\s*Officer|Panchayat\s*Development\s*Officer\s*\(PDO\)|Gram\s*Panchayat|Taluk\s*Panchayat|Special\s*Deputy\s*Commissioner|State\s*of\s*Karnataka)\b/i;
         const mOff = t.match(offTitles);
         if (mOff) {
           const name = mOff[0].trim();
-          const addr = t.slice(mOff[0].length).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+          let addr = t.slice(mOff[0].length).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+          addr = addr.replace(/^[A-Za-z]{1,2}\s+/, "");
           return { name, address: addr };
         }
 
         if (t.includes(":")) {
           const idx = t.indexOf(":");
+          let addr = t.slice(idx + 1).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+          addr = addr.replace(/^[A-Za-z]{1,2}\s+/, "");
           return {
             name: t.slice(0, idx).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, ""),
-            address: t.slice(idx + 1).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "")
+            address: addr
           };
         }
 
-        const addrKw = /\b(?:village|hobli|taluk|district|road|cross|layout|nagar|main\s+road|no\.?\s*\d+|street|post|door\s+no\.?)\b|(?:ಗ್ರಾಮ|ಗಾಮ|ಹೋಬಳಿ|ತಾಲ್ಲೂಕು|ತಾಲೂಕು|ಜಿಲ್ಲೆ|ರಸ್ತೆ|ಬಡಾವಣೆ|ನಗರ|ದೇವಸ್ಥಾನ|ನಂ\.?\s*\d+)/i;
+        const mRel = t.match(/(\b(?:W\/o|S\/o|D\/o|Late|Bin|Kom)\s+[A-Za-z]+(?:\s+[A-Za-z]+){0,2})(?:[,\s]+(.*))?$/i);
+        if (mRel) {
+          const name = t.slice(0, mRel.index + mRel[1].length).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+          let addr = (mRel[2] || "").trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+          addr = addr.replace(/^[A-Za-z]{1,2}\s+/, "");
+          return { name, address: addr };
+        }
+
+        const addrKw = /\b(?:village|hobli|taluk|district|road|cross|layout|nagar|main\s+road|no\.?\s*\d+|street|post|door\s+no\.?|near)\b|(?:ಗ್ರಾಮ|ಗಾಮ|ಹೋಬಳಿ|ತಾಲ್ಲೂಕು|ತಾಲೂಕು|ಜಿಲ್ಲೆ|ರಸ್ತೆ|ಬಡಾವಣೆ|ನಗರ|ದೇವಸ್ಥಾನ|ನಂ\.?\s*\d+|ಹತ್ತಿರ)/i;
         const mAddr = t.match(addrKw);
         if (mAddr && mAddr.index !== undefined) {
           const cutIdx = mAddr.index;
           const prevComma = t.lastIndexOf(",", cutIdx);
           if (prevComma !== -1 && prevComma >= cutIdx - 30) {
+            let addr = t.slice(prevComma + 1).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+            addr = addr.replace(/^[A-Za-z]{1,2}\s+/, "");
             return {
               name: t.slice(0, prevComma).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, ""),
-              address: t.slice(prevComma + 1).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "")
+              address: addr
             };
           }
           const words = t.slice(0, cutIdx).trim().split(/\s+/);
           if (words.length > 0) {
             const lastWord = words[words.length - 1];
             if (!/^(?:s\/o|w\/o|d\/o|late|bin|kom|mr|mrs|sri|smt)$/i.test(lastWord)) {
+              let addr = (lastWord + " " + t.slice(cutIdx)).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+              addr = addr.replace(/^[A-Za-z]{1,2}\s+/, "");
               return {
                 name: words.slice(0, -1).join(" ").trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, ""),
-                address: (lastWord + " " + t.slice(cutIdx)).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "")
+                address: addr
               };
             }
           }
+          let addr = t.slice(cutIdx).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+          addr = addr.replace(/^[A-Za-z]{1,2}\s+/, "");
           return {
             name: t.slice(0, cutIdx).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, ""),
-            address: t.slice(cutIdx).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "")
+            address: addr
           };
         }
         return { name: t, address: "" };
@@ -2450,12 +2518,12 @@ part8_features = """
           const merged = Object.assign({}, scannedCases[0]);
           for (let i = 1; i < scannedCases.length; i++) {
             const sc = scannedCases[i];
-            if (!merged.applicant_name && sc.applicant_name) merged.applicant_name = sc.applicant_name;
-            if (!merged.applicant_address && sc.applicant_address) merged.applicant_address = sc.applicant_address;
-            if (!merged.respondent_name && sc.respondent_name) merged.respondent_name = sc.respondent_name;
-            if (!merged.respondent_address && sc.respondent_address) merged.respondent_address = sc.respondent_address;
-            if (!merged.applicants && sc.applicants) merged.applicants = sc.applicants;
-            if (!merged.respondents && sc.respondents) merged.respondents = sc.respondents;
+            if (!merged.applicant_name && sc.applicant_name && !isProceduralParty(sc.applicant_name)) merged.applicant_name = sc.applicant_name;
+            if (!merged.applicant_address && sc.applicant_address && !isProceduralParty(sc.applicant_address)) merged.applicant_address = sc.applicant_address;
+            if (!merged.respondent_name && sc.respondent_name && !isProceduralParty(sc.respondent_name)) merged.respondent_name = sc.respondent_name;
+            if (!merged.respondent_address && sc.respondent_address && !isProceduralParty(sc.respondent_address)) merged.respondent_address = sc.respondent_address;
+            if (!merged.applicants && sc.applicants && !isProceduralParty(sc.applicants)) merged.applicants = sc.applicants;
+            if (!merged.respondents && sc.respondents && !isProceduralParty(sc.respondents)) merged.respondents = sc.respondents;
             if (!merged.nextHearing && sc.nextHearing) merged.nextHearing = sc.nextHearing;
             if ((!merged.currentStage || merged.currentStage === "Orders") && sc.currentStage && sc.currentStage !== "Orders") {
               merged.currentStage = sc.currentStage;

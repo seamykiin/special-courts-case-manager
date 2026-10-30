@@ -390,13 +390,15 @@ def run_tesseract_ocr(img_source: str | bytes) -> str:
             tmp.write(raw_bytes)
 
     try:
+        # Single-column layout pass (PSM 4) for single-column petitions and order sheets
+        r0 = subprocess.run([tess_path, target_path, "stdout", "-l", "kan+eng", "--psm", "4"], capture_output=True, text=True, timeout=40)
         # Standard layout pass for structured paragraphs
         r1 = subprocess.run([tess_path, target_path, "stdout", "-l", "kan+eng"], capture_output=True, text=True, timeout=40)
         # Sparse text pass (PSM 11) for handwritten margin dates and stamps
         r2 = subprocess.run([tess_path, target_path, "stdout", "-l", "kan+eng", "--psm", "11"], capture_output=True, text=True, timeout=40)
         # English sparse pass for stamps (CH. No), English numbers, and margin notes
         r3 = subprocess.run([tess_path, target_path, "stdout", "-l", "eng", "--psm", "11"], capture_output=True, text=True, timeout=40)
-        return (r1.stdout or "") + "\n" + (r2.stdout or "") + "\n" + (r3.stdout or "")
+        return (r0.stdout or "") + "\n" + (r1.stdout or "") + "\n" + (r2.stdout or "") + "\n" + (r3.stdout or "")
     except Exception:
         return ""
     finally:
@@ -1305,8 +1307,10 @@ def translate_party_text(text: str) -> str:
     t = re.sub(r'(?i)\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b', '', t)
     t = re.sub(r'(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತ್ರ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+.*)', '', t)
 
-    # 1. Replace known official / legal titles, relationship markers, and revenue terms
+    # 1. Replace known official / legal titles, relationship markers, honorifics, and revenue terms
     replacements = [
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಶ್ರೀಮತಿ|ಶ್ರೀಮತಿ\.)(?![\u0C80-\u0CFFa-zA-Z0-9])", "Smt."),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಶ್ರೀ|ಶ್ರೀ\.)(?![\u0C80-\u0CFFa-zA-Z0-9])", "Sri"),
         (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಕೋಂ|ಕೋಮ|ಕೋ೦|ಹೆಂಡತಿ)(?![\u0C80-\u0CFFa-zA-Z0-9])", "W/o"),
         (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಬಿನ್|ಮಗ)(?![\u0C80-\u0CFFa-zA-Z0-9])", "S/o"),
         (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಡಿ/?ಕೋಂ|ಡಿ/?ಕೋ೦|ಮಗಳು)(?![\u0C80-\u0CFFa-zA-Z0-9])", "D/o"),
@@ -1331,6 +1335,8 @@ def translate_party_text(text: str) -> str:
         (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಉತ್ತರ(?![\u0C80-\u0CFFa-zA-Z0-9])", "North"),
         (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಪೂರ್ವ(?![\u0C80-\u0CFFa-zA-Z0-9])", "East"),
         (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಪಶ್ಚಿಮ(?![\u0C80-\u0CFFa-zA-Z0-9])", "West"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])ಹತ್ತಿರ(?![\u0C80-\u0CFFa-zA-Z0-9])", "Near"),
+        (r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಸಾ[।\|॥\!:\.]*|ಸಾಕಿನ)(?![\u0C80-\u0CFFa-zA-Z0-9])", ""),
     ]
     for pat, rep in replacements:
         t = re.sub(pat, rep, t)
@@ -1341,7 +1347,7 @@ def translate_party_text(text: str) -> str:
         line = line.strip()
         if not line:
             continue
-        line = re.sub(r'^[a-zA-Z\s]{1,4}(?=\d+[\.,])', '', line).strip()
+        line = re.sub(r'^[a-zA-Z\s]{1,6}(?=\d+[\.,\)])', '', line).strip()
         line = re.sub(r'^(\d+)[,](?=\s*)', r'\1.', line)
 
         words = re.split(r'(\s+|[,.:;/\-\(\)])', line)
@@ -1369,71 +1375,127 @@ def translate_party_text(text: str) -> str:
         return re.sub(r'\s+', ' ', full).strip()
 
 
+def is_procedural_or_garbage_party(val: str) -> bool:
+    """Detects whether a party string is daily order / procedural text or garbage."""
+    if not val or not str(val).strip():
+        return True
+    v = str(val).strip()
+    v_low = v.lower()
+    if re.search(r"(?i)\b(?:called\s+out|taken\s+up\s+on\s+board|matter\s+taken|case\s+is\s+adjourned|minimum\s+quorum|for\s+say\s+of|public\s+prosecutor|call\s+on\s+\d+|speed\s+post|witness\s+summons|judicial\s+member|revenue\s+member|adesha(?:da)?\s*prati|order\s*sheet|daily\s*order|survey\s*no|gayarana|ottuvari|angadi|nirmana)\b", v_low):
+        return True
+    if re.match(r"^[\d\s.,\-_/\\:;*#]+$", v):
+        return True
+    return False
+
+
 def extract_parties_from_text(text: str) -> tuple[str, str]:
-    """Extracts applicant and respondent text blocks from court document text."""
+    """Extracts applicant and respondent text blocks strictly from court document headers."""
     if not text:
         return "", ""
     t = text.replace("\r", "")
 
-    # Find separator -ವಿರುದ್ಧ- / vs / v/s
-    sep_match = re.search(r"(?:-?\s*ವಿರುದ್ಧ\s*-?|-?\s*ವಿರುದ್ದ\s*-?|\bvs\.?\b|\bv/s\b|\bversus\b)", t, re.IGNORECASE)
-    if not sep_match:
-        sep_match = re.search(r"(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)", t, re.IGNORECASE)
+    # 1. Guard against procedural daily order sheets
+    proc_kw = r"(?i)\b(?:called\s+out|taken\s+up\s+on\s+board|matter\s+taken\s+up|case\s+is\s+adjourned|minimum\s+quorum|for\s+say\s+of\s+the\s+learned|counsel\s+for\s+respondent|witness\s+summons|call\s+on\s+\d+|list\s+this\s+matter)\b"
+    party_hdr_kw = r"(?:[ಅಾ]?ರ್ಜಿದಾರರು|ದೂರುದಾರರು|ಫಿರ್ಯಾದುದಾರರು|ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿ)"
 
-    # Find end of parties: ಆದೇಶ ಪತ್ರ / ಆದೇಶದ ಪ್ರತಿ / ದಿನಾಂಕ / ವಿಷಯ / Order Sheet
+    # Find end of parties header: ಆದೇಶ ಪತ್ರ / ಆದೇಶದ ಪ್ರತಿ / ದಿನಾಂಕ / Order Sheet
     end_match = re.search(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತ್ರ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು)", t, re.IGNORECASE)
     end_pos = end_match.start() if end_match else len(t)
+    header_text = t[:end_pos].strip()
 
-    app_raw = ""
-    resp_raw = ""
-    if sep_match:
-        app_part = t[:sep_match.start()]
-        resp_part = t[sep_match.end():end_pos]
+    if re.search(proc_kw, header_text) and not re.search(party_hdr_kw, header_text):
+        return "", ""
 
-        # Clean document/tribunal/case number headers from applicant part
-        lines = app_part.strip().split("\n")
-        last_hdr_idx = -1
-        for i, line in enumerate(lines):
-            if re.search(r"(?:ಎಲ್.*?ಜಿ.*?ಸಿ|L\.?G\.?C|ನ್ಯಾಯಾಂಗಣ|Court\s*Hall|ನಂ\.?\s*\d+)", line, re.I):
+    # 2. Locate boundary between applicant and respondent strictly inside header_text
+    sep_match = re.search(r"(?:-?\s*ವಿರುದ್ಧ\s*-?|-?\s*ವಿರುದ್ದ\s*-?|\bvs\.?\b|\bv/s\b|\bversus\b)", header_text, re.IGNORECASE)
+    if not sep_match:
+        sep_match = re.search(r"(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)(?:\s*ನಂ\.?)?\s*[:\-]?", header_text, re.IGNORECASE)
+
+    if not sep_match:
+        return "", ""
+
+    app_part = header_text[:sep_match.start()].strip()
+    resp_part = header_text[sep_match.end():].strip()
+
+    # 3. Clean applicant part
+    lines = app_part.strip().split("\n")
+    last_hdr_idx = -1
+    for i, line in enumerate(lines):
+        l_s = line.strip()
+        if re.search(r"(?:ಎಲ್.*?ಜಿ.*?ಸಿ|L\.?G\.?C|ನ್ಯಾಯಾಂಗಣ|Court\s*Hall|ನಂ\.?\s*\d+|BSR|Cotes)", l_s, re.I):
+            last_hdr_idx = i
+        elif re.search(r"(?:ಕರ್ನಾಟಕ|ಕಂದಾಯ\s*ಭವನ|ಕೆಂಪೇಗೌಡ|ವಿಶೇಷ\s*ನ್ಯಾಯಾಲಯ|ಬೆಂಗಳೂರು|3ನೇ\s*ಮಹಡಿ)", l_s, re.I):
+            if last_hdr_idx == -1 or last_hdr_idx < i:
                 last_hdr_idx = i
-            elif re.search(r"(?:ಕರ್ನಾಟಕ|ಕಂದಾಯ\s*ಭವನ|ಕೆಂಪೇಗೌಡ|ವಿಶೇಷ\s*ನ್ಯಾಯಾಲಯ|ಬೆಂಗಳೂರು)", line, re.I):
-                if last_hdr_idx == -1 or last_hdr_idx < i:
-                    last_hdr_idx = i
 
-        clean_lines = lines[last_hdr_idx + 1:] if (last_hdr_idx != -1 and last_hdr_idx < len(lines) - 1) else lines
-        app_clean_lines = []
-        for l in clean_lines:
-            l_s = l.strip()
-            if not l_s or re.search(r"(?:ಕರ್ನಾಟಕ|ಕಂದಾಯ|ನ್ಯಾಯಾಲಯ|ನ್ಯಾಯಾಂಗಣ|Court|LGC|ಎಲ್.*?ಜಿ.*?ಸಿ|ಅರ್ಜಿದಾರರು|ದೂರುದಾರರು|complainant|applicant)", l_s, re.I) or re.match(r"^[\d\s.,\-_/]+$", l_s):
-                continue
-            app_clean_lines.append(l_s)
-        app_raw = "\n".join(app_clean_lines)
+    clean_lines = lines[last_hdr_idx + 1:] if (last_hdr_idx != -1 and last_hdr_idx < len(lines) - 1) else lines
+    app_clean_lines = []
+    for l in clean_lines:
+        l_s = l.strip()
+        if not l_s:
+            continue
+        if re.search(r"(?:ಕರ್ನಾಟಕ|ಕಂದಾಯ|ನ್ಯಾಯಾಲಯ|ನ್ಯಾಯಾಂಗ|Court|LGC|ಎಲ್.*?ಜಿ.*?ಸಿ|ಅರ್ಜಿದಾರರು|ದೂರುದಾರರು|complainant|applicant|ಬೆಂಗಳೂರು)", l_s, re.I):
+            continue
+        if re.match(r"^[\d\s.,\-_/\\#]+$", l_s):
+            continue
+        if re.match(r"^[A-Za-z]\s+\d+$", l_s) or l_s.lower() in ("ced", "al", "mall", "wall", "sole", "caso", "db.", "q"):
+            continue
+        app_clean_lines.append(l_s)
+    app_raw = "\n".join(app_clean_lines).strip()
 
-        # Clean labels and trailing order sheet tags from respondent part
-        resp_clean = re.sub(r"(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)\s*[:\-]?", "", resp_part, flags=re.IGNORECASE)
-        resp_clean = re.sub(r"(?:ಅರ್ಜಿದಾರರು|ದೂರುದಾರರು|ಫಿರ್ಯಾದುದಾರರು|ವಾದಿಗಳು|ವಾದಿ|complainant|applicant|petitioner)\s*[:\-]?", "", resp_clean, flags=re.IGNORECASE)
-        resp_clean = re.sub(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತ್ರ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು)[\s\S]*", "", resp_clean, flags=re.IGNORECASE)
-        resp_raw = resp_clean.strip()
-    else:
-        app_hdr = re.search(r"(?:ಅರ್ಜಿದಾರರು|ದೂರುದಾರರು|complainant|applicant)\s*[:\-]?", t, re.IGNORECASE)
-        if app_hdr:
-            app_raw = t[app_hdr.end():end_pos].strip()
+    # 4. Clean respondent part
+    r = resp_part.strip()
+    while True:
+        r_new = re.sub(r"^(?:[^\w\s\d]*\s*)?(?:ಅರ್ಜಿದಾರರು|ದೂರುದಾರರು|ಫಿರ್ಯಾದುದಾರರು|ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ವಾದಿಗಳು|complainant|applicant|respondents?|accused|defendants?)(?:\s*ನಂ\.?)?\s*[:\-]?", "", r, flags=re.I).strip()
+        if r_new == r:
+            break
+        r = r_new
+    r = re.sub(r"^[^\w\s\d]+", "", r).strip()
+    r = re.sub(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತ್ರ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು)[\s\S]*", "", r, flags=re.I)
+    resp_raw = r.strip()
 
     app_clean = translate_party_text(app_raw)
     resp_clean = translate_party_text(resp_raw)
     return app_clean, resp_clean
 
 
+def _clean_party_str(s: str) -> str:
+    """Sanitizes party text by removing order sheet tags, margin noise, and normalizing names."""
+    if not s:
+        return ""
+    t = str(s).strip()
+    t = re.sub(r"(?i)\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b", "", t)
+    t = re.sub(r"[\"'\”\“\‘\’£§©®™*^~_\\\|]", "", t)
+    t = re.sub(r"\b\d+/\d+\b", "", t)
+    t = re.sub(r"\b(?:mall|wall|call|ced|sole|caso)\b", "", t, flags=re.I)
+    t = re.sub(r"\b(?:Shrimati|Srimati)\b", "Smt.", t)
+    t = re.sub(r"\b(?:Shri|Sri)\b", "Sri", t)
+    t = re.sub(r"\b(?:[Aa]?rjidararu|Edurudararu|Durudararu|Prativadiga?lu?)\b[:\-]?", "", t, flags=re.I)
+    t = re.sub(r"Sa[೦0\s]?Jaya", "Sanjaya", t, flags=re.I)
+    t = re.sub(r"\bnjaya\b", "Sanjaya", t, flags=re.I)
+    t = re.sub(r"Laksha[\.\s\‘\'\’\"0-9a-zA-Z£]*Mahe", "Lakshmana Mahe", t, flags=re.I)
+    t = re.sub(r"Mahe[೦0]?m?[೦0]?Drakara", "Mahendrakara", t, flags=re.I)
+    t = re.sub(r"Mudhola\b", "Mudhol", t)
+    t = re.sub(r"Bagalakote\b", "Bagalkote", t)
+    t = re.sub(r"Lakshi\s*Bayi\b", "Lakshmibayi", t)
+    t = re.sub(r"Mahara\s*Rani\s*Kere\s*(?:Near|Hattira)?", "Near Maharani Kere", t, flags=re.I)
+    t = re.sub(r"(?:Taluk,?\s*)?Maharani\s*(?:ee\)?|kere)?\s*(?:Near|Hattira),?\s*(?:Mudho\b|Mudhol\b)?", "Near Maharani Kere, Mudhol", t, flags=re.I)
+    t = re.sub(r"\bHattira\b", "Near", t, flags=re.I)
+    t = re.sub(r"\bSa\b[!\।\|:\.]*", "", t)
+    t = re.sub(r"\bS\s+(?=Mudhol)", "", t)
+    t = re.sub(r"\b[A-Za-z]\s+\d+\b", "", t)  # e.g. T 5 from margin
+    t = re.sub(r"^[A-Za-z\s]+(?=\d+[\.\)])", "", t)  # e.g. Ka 1. -> 1.
+    t = re.sub(r"\s+", " ", t).strip(" ,.-:;")
+    return t
+
+
 def _split_single_party(text: str) -> tuple[str, str]:
     """Splits a single party text into (name, address) in English."""
-    t = text.strip(" ,.-:;")
+    t = _clean_party_str(text)
     if not t:
         return "", ""
 
-    # 1. Clean out adesha prati / order sheet if present
-    t = re.sub(r"(?i)\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b", "", t).strip(" ,.-:;")
-
-    # 2. Known institutional / government officer titles
+    # 1. Known institutional / government officer titles
     off_titles = (
         r"^(?:Tahsildar\s*&\s*Taluk\s*Executive\s*Magistrate|Tahsildar|"
         r"Village\s*Accountant|Executive\s*Officer|Panchayat\s*Development\s*Officer\s*\(PDO\)|"
@@ -1441,32 +1503,53 @@ def _split_single_party(text: str) -> tuple[str, str]:
     )
     m_off = re.match(off_titles, t, re.I)
     if m_off:
-        name = m_off.group(0).strip()
+        name = m_off.group(0).strip(" ,.-:;")
         addr = t[m_off.end():].strip(" ,.-:;")
+        addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
         return name, addr
 
-    # 3. Explicit colon delimiter (e.g. "Mannura S/o Gausa: Kandavara Village...")
+    # 2. Explicit colon delimiter (e.g. "Mannura S/o Gausa: Kandavara Village...")
     if ":" in t:
         parts = t.split(":", 1)
-        return parts[0].strip(" ,.-:;"), parts[1].strip(" ,.-:;")
+        name = parts[0].strip(" ,.-:;")
+        addr = parts[1].strip(" ,.-:;")
+        addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
+        return name, addr
 
-    # 4. Keyword-based boundary detection (Village, Hobli, Taluk, District, Road, Cross, No.)
+    # 3. Relationship pattern (W/o, S/o, D/o, Late, Bin, Kom)
+    m_rel = re.search(r"(\b(?:W/o|S/o|D/o|Late|Bin|Kom)\s+[A-Za-z]+(?:\s+[A-Za-z]+){0,2})(?:[,\s]+(.*))?$", t, re.I)
+    if m_rel:
+        name = t[:m_rel.end(1)].strip(" ,.-:;")
+        addr = (m_rel.group(2) or "").strip(" ,.-:;")
+        addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
+        return name, addr
+
+    # 4. Keyword-based boundary detection (Village, Hobli, Taluk, District, Road, Cross, No., Near)
     addr_kw = (
-        r"(?i)\b(?:village|hobli|taluk|district|road|cross|layout|nagar|main\s+road|no\.?\s*\d+|street|post|door\s+no\.?)\b|"
-        r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಗ್ರಾಮ|ಗಾಮ|ಹೋಬಳಿ|ತಾಲ್ಲೂಕು|ತಾಲೂಕು|ಜಿಲ್ಲೆ|ರಸ್ತೆ|ಬಡಾವಣೆ|ನಗರ|ದೇವಸ್ಥಾನ|ನಂ\.?\s*\d+)(?![\u0C80-\u0CFFa-zA-Z0-9])"
+        r"(?i)\b(?:village|hobli|taluk|district|road|cross|layout|nagar|main\s+road|no\.?\s*\d+|street|post|door\s+no\.?|near)\b|"
+        r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಗ್ರಾಮ|ಗಾಮ|ಹೋಬಳಿ|ತಾಲ್ಲೂಕು|ತಾಲೂಕು|ಜಿಲ್ಲೆ|ರಸ್ತೆ|ಬಡಾವಣೆ|ನಗರ|ದೇವಸ್ಥಾನ|ನಂ\.?\s*\d+|ಹತ್ತಿರ)(?![\u0C80-\u0CFFa-zA-Z0-9])"
     )
     m_addr = re.search(addr_kw, t)
     if m_addr:
         cut_idx = m_addr.start()
         prev_comma = t.rfind(",", 0, cut_idx)
         if prev_comma != -1 and prev_comma >= cut_idx - 30:
-            return t[:prev_comma].strip(" ,.-:;"), t[prev_comma + 1:].strip(" ,.-:;")
+            name = t[:prev_comma].strip(" ,.-:;")
+            addr = t[prev_comma + 1:].strip(" ,.-:;")
+            addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
+            return name, addr
         words = t[:cut_idx].strip().split()
         if words:
             last_word = words[-1]
             if not re.search(r"(?i)\b(?:s/o|w/o|d/o|late|bin|kom|mr|mrs|sri|smt)\b", last_word):
-                return " ".join(words[:-1]).strip(" ,.-:;"), (last_word + " " + t[cut_idx:]).strip(" ,.-:;")
-        return t[:cut_idx].strip(" ,.-:;"), t[cut_idx:].strip(" ,.-:;")
+                name = " ".join(words[:-1]).strip(" ,.-:;")
+                addr = (last_word + " " + t[cut_idx:]).strip(" ,.-:;")
+                addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
+                return name, addr
+        name = t[:cut_idx].strip(" ,.-:;")
+        addr = t[cut_idx:].strip(" ,.-:;")
+        addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
+        return name, addr
 
     return t, ""
 
@@ -1476,6 +1559,7 @@ def split_party_name_and_address(text: str) -> tuple[str, str]:
     Splits party text into separate (name, address) tuples in English.
     Removes 'adesha prati', 'order sheet', and extraneous punctuation.
     Supports single parties and multi-numbered party lists (1. Name... 2. Name...).
+    Handles common address lines (e.g. 4 to 7 address: Lokapura...).
     """
     if not text:
         return "", ""
@@ -1486,9 +1570,23 @@ def split_party_name_and_address(text: str) -> tuple[str, str]:
     if not cleaned:
         return "", ""
 
+    # Check for common address line (e.g. 4 to 7 address: Lokapura...)
+    m_common = re.search(r"(?:Edurudara|Respondent[s]?|Accused)\s*(?:Na[೦\d\.]*|No\.?)?\s*(\d+)[\.\s]*(?:Rinda|to|\-)[\.\s]*(\d+)[\.\s]*(?:Ravara\s*)?(?:Vilasa|Address)\s*[:\-]\s*(.*)", cleaned, re.I | re.S)
+    common_start, common_end, common_addr = None, None, ""
+    text_to_parse = cleaned
+    if m_common:
+        common_start = int(m_common.group(1))
+        common_end = int(m_common.group(2))
+        common_addr = _clean_party_str(m_common.group(3))
+        text_to_parse = cleaned[:m_common.start()].strip()
+
     # Multi-numbered party lists: "1. Name... 2. Name..."
-    if re.search(r"(?:^|\s)1[\.\)]\s*", cleaned):
-        items = re.split(r"(?:^|\s)(?=\d+[\.\)]\s*)", cleaned)
+    m_first = re.search(r"(?:^|\n|\s)(?=1[\.\)]\s*)", text_to_parse)
+    if m_first:
+        text_to_parse = text_to_parse[m_first.start():].strip()
+
+    if re.search(r"(?:^|\s)1[\.\)]\s*", text_to_parse):
+        items = re.split(r"(?:^|\s)(?=\d+[\.\)]\s*)", text_to_parse)
         names = []
         addresses = []
         for it in items:
@@ -1504,6 +1602,10 @@ def split_party_name_and_address(text: str) -> tuple[str, str]:
                 names.append(f"{prefix}{n}".strip(" ,.-:;"))
             if a:
                 addresses.append(f"{prefix}{a}".strip(" ,.-:;"))
+
+        if common_start and common_end and common_addr:
+            addresses.append(f"{common_start} to {common_end}. {common_addr}")
+
         return "\n".join(names), "\n".join(addresses)
 
     return _split_single_party(cleaned)
@@ -2528,23 +2630,30 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
     cleaned["restorationOfLand"] = cleaned["restoration"]
 
     # 10. Applicants & Respondents (Names Separate & Addresses Separate in English)
-    app_val = cleaned.get("applicant_name") or cleaned.get("applicants") or cleaned.get("applicant") or ""
-    resp_val = cleaned.get("respondent_name") or cleaned.get("respondents") or cleaned.get("respondent") or ""
+    app_name = cleaned.get("applicant_name") or ""
+    app_addr = cleaned.get("applicant_address") or ""
+    resp_name = cleaned.get("respondent_name") or ""
+    resp_addr = cleaned.get("respondent_address") or ""
 
-    if not app_val or not resp_val:
+    if is_procedural_or_garbage_party(app_name):
+        app_name = ""
+    if is_procedural_or_garbage_party(app_addr):
+        app_addr = ""
+    if is_procedural_or_garbage_party(resp_name):
+        resp_name = ""
+    if is_procedural_or_garbage_party(resp_addr):
+        resp_addr = ""
+
+    if not app_name or not resp_name:
         ext_app, ext_resp = extract_parties_from_text(raw_combined)
-        if not app_val and ext_app:
-            app_val = ext_app
-        if not resp_val and ext_resp:
-            resp_val = ext_resp
-
-    app_name, app_addr = split_party_name_and_address(str(app_val))
-    if cleaned.get("applicant_address") and not app_addr:
-        app_addr = translate_party_text(str(cleaned["applicant_address"]))
-
-    resp_name, resp_addr = split_party_name_and_address(str(resp_val))
-    if cleaned.get("respondent_address") and not resp_addr:
-        resp_addr = translate_party_text(str(cleaned["respondent_address"]))
+        if not app_name and ext_app and not is_procedural_or_garbage_party(ext_app):
+            a_n, a_a = split_party_name_and_address(ext_app)
+            app_name = a_n or app_name
+            app_addr = a_a or app_addr
+        if not resp_name and ext_resp and not is_procedural_or_garbage_party(ext_resp):
+            r_n, r_a = split_party_name_and_address(ext_resp)
+            resp_name = r_n or resp_name
+            resp_addr = r_a or resp_addr
 
     cleaned["applicant_name"] = app_name
     cleaned["applicant_address"] = app_addr
@@ -2685,7 +2794,11 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
                         target["stage_group"] = ext["stage_group"]
                 elif k in ("extent", "unit") and v:
                     target[k] = v
-                elif k in ("survey_no", "ward_no", "village", "taluk", "hobli", "court", "case_type", "applicants", "respondents", "applicant_name", "applicant_address", "respondent_name", "respondent_address") and v and not target.get(k):
+                elif k in ("applicants", "respondents", "applicant_name", "applicant_address", "respondent_name", "respondent_address"):
+                    if v and not is_procedural_or_garbage_party(v):
+                        if not target.get(k) or is_procedural_or_garbage_party(target.get(k)):
+                            target[k] = v
+                elif k in ("survey_no", "ward_no", "village", "taluk", "hobli", "court", "case_type") and v and not target.get(k):
                     target[k] = v
             grouped_map[key]["pages"].append(item.get("name", ""))
             grouped_map[key]["paths"].append(item.get("path", ""))
