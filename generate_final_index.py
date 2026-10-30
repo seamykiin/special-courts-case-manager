@@ -1022,7 +1022,7 @@ part8_features = """
             if (sp.name) names.push(`${prefix}${sp.name}`.trim());
             if (sp.address) addresses.push(`${prefix}${sp.address}`.trim());
           }
-          return { name: names.join("\n"), address: addresses.join("\n") };
+          return { name: names.join(String.fromCharCode(10)), address: addresses.join(String.fromCharCode(10)) };
         }
         return splitSingleParty(str);
       }
@@ -1113,8 +1113,8 @@ part8_features = """
           applicant_address: appA,
           respondent_name: respN,
           respondent_address: respA,
-          applicants: (appN + (appA ? "\n" + appA : "")).trim() || item.applicants || "",
-          respondents: (respN + (respA ? "\n" + respA : "")).trim() || item.respondents || "",
+          applicants: (appN + (appA ? String.fromCharCode(10) + appA : "")).trim() || item.applicants || "",
+          respondents: (respN + (respA ? String.fromCharCode(10) + respA : "")).trim() || item.respondents || "",
           filedYear: parseInt(item.filedYear || item.filing_year || CURRENT_YEAR, 10),
           filing_year: parseInt(item.filedYear || item.filing_year || CURRENT_YEAR, 10),
           stageGroup: stageGrp,
@@ -2301,9 +2301,9 @@ part8_features = """
           if (fAppAddr) cur.applicant_address = fAppAddr.value;
           if (fRespName) cur.respondent_name = fRespName.value;
           if (fRespAddr) cur.respondent_address = fRespAddr.value;
-          cur.applicants = (cur.applicant_name + (cur.applicant_address ? "\n" + cur.applicant_address : "")).trim();
+          cur.applicants = (cur.applicant_name + (cur.applicant_address ? String.fromCharCode(10) + cur.applicant_address : "")).trim();
           cur.applicant = cur.applicants;
-          cur.respondents = (cur.respondent_name + (cur.respondent_address ? "\n" + cur.respondent_address : "")).trim();
+          cur.respondents = (cur.respondent_name + (cur.respondent_address ? String.fromCharCode(10) + cur.respondent_address : "")).trim();
           cur.respondent = cur.respondents;
           if (fStage) { cur.currentStage = fStage.value; cur.stage = fStage.value; }
           if (fHearing) { cur.nextHearing = fHearing.value; cur.hearing_date = fHearing.value; }
@@ -3443,8 +3443,8 @@ part8_features = """
             applicant_address: appA,
             respondent_name: respN,
             respondent_address: respA,
-            applicants: (appN + (appA ? "\n" + appA : "")).trim(),
-            respondents: (respN + (respA ? "\n" + respA : "")).trim(),
+            applicants: (appN + (appA ? String.fromCharCode(10) + appA : "")).trim(),
+            respondents: (respN + (respA ? String.fromCharCode(10) + respA : "")).trim(),
             filedYear: year,
             filing_year: year,
             stageGroup: document.getElementById("fStageGroup")?.value || (STAGE_TO_GROUP[document.getElementById("fCurrentStage")?.value] || ""),
