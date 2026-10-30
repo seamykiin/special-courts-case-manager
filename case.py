@@ -1301,6 +1301,9 @@ def translate_party_text(text: str) -> str:
     t = str(text).strip()
     t = re.sub(r'[\u200b\u200c\u200d\ufeff]', '', t)
     t = re.sub(r'^[\s\"\'\”\“\‘\’\-:\.,]+', '', t)
+    # Strip "Adeshada Prati", "Adesha Prati", "Order Sheet", etc.
+    t = re.sub(r'(?i)\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b', '', t)
+    t = re.sub(r'(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತ್ರ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+.*)', '', t)
 
     # 1. Replace known official / legal titles, relationship markers, and revenue terms
     replacements = [
@@ -1377,8 +1380,8 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
     if not sep_match:
         sep_match = re.search(r"(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)", t, re.IGNORECASE)
 
-    # Find end of parties: ಆದೇಶ ಪತ್ರ / ದಿನಾಂಕ / ವಿಷಯ / Order Sheet
-    end_match = re.search(r"(?:ಆದೇಶ\s*ಪತ್ರ|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು)", t, re.IGNORECASE)
+    # Find end of parties: ಆದೇಶ ಪತ್ರ / ಆದೇಶದ ಪ್ರತಿ / ದಿನಾಂಕ / ವಿಷಯ / Order Sheet
+    end_match = re.search(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತ್ರ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು)", t, re.IGNORECASE)
     end_pos = end_match.start() if end_match else len(t)
 
     app_raw = ""
@@ -1406,9 +1409,10 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
             app_clean_lines.append(l_s)
         app_raw = "\n".join(app_clean_lines)
 
-        # Clean labels from respondent part
+        # Clean labels and trailing order sheet tags from respondent part
         resp_clean = re.sub(r"(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)\s*[:\-]?", "", resp_part, flags=re.IGNORECASE)
         resp_clean = re.sub(r"(?:ಅರ್ಜಿದಾರರು|ದೂರುದಾರರು|ಫಿರ್ಯಾದುದಾರರು|ವಾದಿಗಳು|ವಾದಿ|complainant|applicant|petitioner)\s*[:\-]?", "", resp_clean, flags=re.IGNORECASE)
+        resp_clean = re.sub(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತ್ರ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು)[\s\S]*", "", resp_clean, flags=re.IGNORECASE)
         resp_raw = resp_clean.strip()
     else:
         app_hdr = re.search(r"(?:ಅರ್ಜಿದಾರರು|ದೂರುದಾರರು|complainant|applicant)\s*[:\-]?", t, re.IGNORECASE)
@@ -1418,6 +1422,91 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
     app_clean = translate_party_text(app_raw)
     resp_clean = translate_party_text(resp_raw)
     return app_clean, resp_clean
+
+
+def _split_single_party(text: str) -> tuple[str, str]:
+    """Splits a single party text into (name, address) in English."""
+    t = text.strip(" ,.-:;")
+    if not t:
+        return "", ""
+
+    # 1. Clean out adesha prati / order sheet if present
+    t = re.sub(r"(?i)\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b", "", t).strip(" ,.-:;")
+
+    # 2. Known institutional / government officer titles
+    off_titles = (
+        r"^(?:Tahsildar\s*&\s*Taluk\s*Executive\s*Magistrate|Tahsildar|"
+        r"Village\s*Accountant|Executive\s*Officer|Panchayat\s*Development\s*Officer\s*\(PDO\)|"
+        r"Gram\s*Panchayat|Taluk\s*Panchayat|Special\s*Deputy\s*Commissioner|State\s*of\s*Karnataka)\b"
+    )
+    m_off = re.match(off_titles, t, re.I)
+    if m_off:
+        name = m_off.group(0).strip()
+        addr = t[m_off.end():].strip(" ,.-:;")
+        return name, addr
+
+    # 3. Explicit colon delimiter (e.g. "Mannura S/o Gausa: Kandavara Village...")
+    if ":" in t:
+        parts = t.split(":", 1)
+        return parts[0].strip(" ,.-:;"), parts[1].strip(" ,.-:;")
+
+    # 4. Keyword-based boundary detection (Village, Hobli, Taluk, District, Road, Cross, No.)
+    addr_kw = (
+        r"(?i)\b(?:village|hobli|taluk|district|road|cross|layout|nagar|main\s+road|no\.?\s*\d+|street|post|door\s+no\.?)\b|"
+        r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಗ್ರಾಮ|ಗಾಮ|ಹೋಬಳಿ|ತಾಲ್ಲೂಕು|ತಾಲೂಕು|ಜಿಲ್ಲೆ|ರಸ್ತೆ|ಬಡಾವಣೆ|ನಗರ|ದೇವಸ್ಥಾನ|ನಂ\.?\s*\d+)(?![\u0C80-\u0CFFa-zA-Z0-9])"
+    )
+    m_addr = re.search(addr_kw, t)
+    if m_addr:
+        cut_idx = m_addr.start()
+        prev_comma = t.rfind(",", 0, cut_idx)
+        if prev_comma != -1 and prev_comma >= cut_idx - 30:
+            return t[:prev_comma].strip(" ,.-:;"), t[prev_comma + 1:].strip(" ,.-:;")
+        words = t[:cut_idx].strip().split()
+        if words:
+            last_word = words[-1]
+            if not re.search(r"(?i)\b(?:s/o|w/o|d/o|late|bin|kom|mr|mrs|sri|smt)\b", last_word):
+                return " ".join(words[:-1]).strip(" ,.-:;"), (last_word + " " + t[cut_idx:]).strip(" ,.-:;")
+        return t[:cut_idx].strip(" ,.-:;"), t[cut_idx:].strip(" ,.-:;")
+
+    return t, ""
+
+
+def split_party_name_and_address(text: str) -> tuple[str, str]:
+    """
+    Splits party text into separate (name, address) tuples in English.
+    Removes 'adesha prati', 'order sheet', and extraneous punctuation.
+    Supports single parties and multi-numbered party lists (1. Name... 2. Name...).
+    """
+    if not text:
+        return "", ""
+    cleaned = re.sub(r"(?i)\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b", "", str(text))
+    cleaned = re.sub(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತ್ರ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+.*)", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,.-:;")
+
+    if not cleaned:
+        return "", ""
+
+    # Multi-numbered party lists: "1. Name... 2. Name..."
+    if re.search(r"(?:^|\s)1[\.\)]\s*", cleaned):
+        items = re.split(r"(?:^|\s)(?=\d+[\.\)]\s*)", cleaned)
+        names = []
+        addresses = []
+        for it in items:
+            it = it.strip(" ,.-;")
+            if not it:
+                continue
+            m_num = re.match(r"^(\d+[\.\)]\s*)(.*)", it)
+            prefix = m_num.group(1) if m_num else ""
+            body = m_num.group(2) if m_num else it
+
+            n, a = _split_single_party(body)
+            if n:
+                names.append(f"{prefix}{n}".strip(" ,.-:;"))
+            if a:
+                addresses.append(f"{prefix}{a}".strip(" ,.-:;"))
+        return "\n".join(names), "\n".join(addresses)
+
+    return _split_single_party(cleaned)
 
 
 def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str = "") -> dict:
@@ -2438,9 +2527,9 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
 
     cleaned["restorationOfLand"] = cleaned["restoration"]
 
-    # 10. Applicants & Respondents (Names & Addresses in English)
-    app_val = cleaned.get("applicants") or cleaned.get("applicant") or ""
-    resp_val = cleaned.get("respondents") or cleaned.get("respondent") or ""
+    # 10. Applicants & Respondents (Names Separate & Addresses Separate in English)
+    app_val = cleaned.get("applicant_name") or cleaned.get("applicants") or cleaned.get("applicant") or ""
+    resp_val = cleaned.get("respondent_name") or cleaned.get("respondents") or cleaned.get("respondent") or ""
 
     if not app_val or not resp_val:
         ext_app, ext_resp = extract_parties_from_text(raw_combined)
@@ -2449,16 +2538,21 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
         if not resp_val and ext_resp:
             resp_val = ext_resp
 
-    if app_val:
-        cleaned["applicants"] = translate_party_text(str(app_val))
-    else:
-        cleaned["applicants"] = ""
+    app_name, app_addr = split_party_name_and_address(str(app_val))
+    if cleaned.get("applicant_address") and not app_addr:
+        app_addr = translate_party_text(str(cleaned["applicant_address"]))
 
-    if resp_val:
-        cleaned["respondents"] = translate_party_text(str(resp_val))
-    else:
-        cleaned["respondents"] = ""
+    resp_name, resp_addr = split_party_name_and_address(str(resp_val))
+    if cleaned.get("respondent_address") and not resp_addr:
+        resp_addr = translate_party_text(str(cleaned["respondent_address"]))
 
+    cleaned["applicant_name"] = app_name
+    cleaned["applicant_address"] = app_addr
+    cleaned["respondent_name"] = resp_name
+    cleaned["respondent_address"] = resp_addr
+
+    cleaned["applicants"] = (app_name + ("\n" + app_addr if app_addr else "")).strip()
+    cleaned["respondents"] = (resp_name + ("\n" + resp_addr if resp_addr else "")).strip()
     cleaned["applicant"] = cleaned["applicants"]
     cleaned["respondent"] = cleaned["respondents"]
 
@@ -2591,7 +2685,7 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
                         target["stage_group"] = ext["stage_group"]
                 elif k in ("extent", "unit") and v:
                     target[k] = v
-                elif k in ("survey_no", "ward_no", "village", "taluk", "hobli", "court", "case_type", "applicants", "respondents") and v and not target.get(k):
+                elif k in ("survey_no", "ward_no", "village", "taluk", "hobli", "court", "case_type", "applicants", "respondents", "applicant_name", "applicant_address", "respondent_name", "respondent_address") and v and not target.get(k):
                     target[k] = v
             grouped_map[key]["pages"].append(item.get("name", ""))
             grouped_map[key]["paths"].append(item.get("path", ""))
@@ -3079,14 +3173,14 @@ class CaseApp(_TkBase):
             id INTEGER PRIMARY KEY AUTOINCREMENT, case_no TEXT NOT NULL, existing_case_no TEXT,
             filing_year TEXT, stage_group TEXT, case_type TEXT, court TEXT, filing_date TEXT,
             hearing_date TEXT, dispose_date TEXT, case_status TEXT DEFAULT 'Pending', stage TEXT,
-            restoration TEXT, applicants TEXT, respondents TEXT, extent TEXT, unit TEXT, survey_no TEXT, ward_no TEXT, pid_no TEXT,
+            restoration TEXT, applicants TEXT, respondents TEXT, applicant_name TEXT, applicant_address TEXT, respondent_name TEXT, respondent_address TEXT, extent TEXT, unit TEXT, survey_no TEXT, ward_no TEXT, pid_no TEXT,
             tax_no TEXT, district TEXT, taluk TEXT, hobli TEXT, village TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
         )""")
         self.db.execute("""CREATE TABLE IF NOT EXISTS custom_options (field_key TEXT NOT NULL, field_value TEXT NOT NULL, UNIQUE(field_key, field_value))""")
         self.db.commit()
 
         columns = {r["name"] for r in self.db.execute("PRAGMA table_info(cases)")}
-        for name in ("existing_case_no", "filing_year", "stage_group", "dispose_date", "case_status", "applicants", "respondents"):
+        for name in ("existing_case_no", "filing_year", "stage_group", "dispose_date", "case_status", "applicants", "respondents", "applicant_name", "applicant_address", "respondent_name", "respondent_address"):
             if name not in columns:
                 self.db.execute(f"ALTER TABLE cases ADD COLUMN {name} TEXT")
         self.db.execute("UPDATE cases SET existing_case_no=case_no WHERE existing_case_no IS NULL OR existing_case_no=''")

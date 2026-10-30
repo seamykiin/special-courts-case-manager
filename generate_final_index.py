@@ -1001,6 +1001,82 @@ part8_features = """
         }
       }
 
+      function splitPartyNameAndAddress(text) {
+        if (!text) return { name: "", address: "" };
+        let str = String(text).replace(/\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b/gi, "");
+        str = str.replace(/(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತ್ರ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+.*)/g, "");
+        str = str.trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+        if (!str) return { name: "", address: "" };
+
+        if (/(?:^|\s)1[\.\)]\s*/.test(str)) {
+          const parts = str.split(/(?:^|\s)(?=\d+[\.\)]\s*)/);
+          const names = [];
+          const addresses = [];
+          for (let p of parts) {
+            p = p.trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+            if (!p) continue;
+            const m = p.match(/^(\d+[\.\)]\s*)(.*)/);
+            const prefix = m ? m[1] : "";
+            const body = m ? m[2] : p;
+            const sp = splitSingleParty(body);
+            if (sp.name) names.push(`${prefix}${sp.name}`.trim());
+            if (sp.address) addresses.push(`${prefix}${sp.address}`.trim());
+          }
+          return { name: names.join("\n"), address: addresses.join("\n") };
+        }
+        return splitSingleParty(str);
+      }
+
+      function splitSingleParty(str) {
+        if (!str) return { name: "", address: "" };
+        let t = str.trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+        t = t.replace(/\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet)\b/gi, "").trim();
+
+        const offTitles = /^(?:Tahsildar\s*&\s*Taluk\s*Executive\s*Magistrate|Tahsildar|Village\s*Accountant|Executive\s*Officer|Panchayat\s*Development\s*Officer\s*\(PDO\)|Gram\s*Panchayat|Taluk\s*Panchayat|Special\s*Deputy\s*Commissioner|State\s*of\s*Karnataka)\b/i;
+        const mOff = t.match(offTitles);
+        if (mOff) {
+          const name = mOff[0].trim();
+          const addr = t.slice(mOff[0].length).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+          return { name, address: addr };
+        }
+
+        if (t.includes(":")) {
+          const idx = t.indexOf(":");
+          return {
+            name: t.slice(0, idx).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, ""),
+            address: t.slice(idx + 1).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "")
+          };
+        }
+
+        const addrKw = /\b(?:village|hobli|taluk|district|road|cross|layout|nagar|main\s+road|no\.?\s*\d+|street|post|door\s+no\.?)\b|(?:ಗ್ರಾಮ|ಗಾಮ|ಹೋಬಳಿ|ತಾಲ್ಲೂಕು|ತಾಲೂಕು|ಜಿಲ್ಲೆ|ರಸ್ತೆ|ಬಡಾವಣೆ|ನಗರ|ದೇವಸ್ಥಾನ|ನಂ\.?\s*\d+)/i;
+        const mAddr = t.match(addrKw);
+        if (mAddr && mAddr.index !== undefined) {
+          const cutIdx = mAddr.index;
+          const prevComma = t.lastIndexOf(",", cutIdx);
+          if (prevComma !== -1 && prevComma >= cutIdx - 30) {
+            return {
+              name: t.slice(0, prevComma).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, ""),
+              address: t.slice(prevComma + 1).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "")
+            };
+          }
+          const words = t.slice(0, cutIdx).trim().split(/\s+/);
+          if (words.length > 0) {
+            const lastWord = words[words.length - 1];
+            if (!/^(?:s\/o|w\/o|d\/o|late|bin|kom|mr|mrs|sri|smt)$/i.test(lastWord)) {
+              return {
+                name: words.slice(0, -1).join(" ").trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, ""),
+                address: (lastWord + " " + t.slice(cutIdx)).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "")
+              };
+            }
+          }
+          return {
+            name: t.slice(0, cutIdx).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, ""),
+            address: t.slice(cutIdx).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "")
+          };
+        }
+        return { name: t, address: "" };
+      }
+
       async function saveQueueItemDirectly(item) {
         const type = item.type || item.case_type || "G";
         const cno = extractCaseNumberOnly(item.existing_case_no || item.caseNo || "");
@@ -1010,6 +1086,21 @@ part8_features = """
         const subStage = item.currentStage || item.stage || item.sub_stage || "Appearance of Accused";
         const stageGrp = item.stageGroup || item.stage_group || STAGE_TO_GROUP[subStage] || "Appearance";
         const restVal = item.restorationOfLand || item.restoration || (isDisposedCase ? "N/A" : "No");
+
+        let appN = item.applicant_name || "";
+        let appA = item.applicant_address || "";
+        if (!appN && (item.applicants || item.applicant)) {
+          const sp = splitPartyNameAndAddress(item.applicants || item.applicant);
+          appN = sp.name; appA = sp.address;
+        }
+
+        let respN = item.respondent_name || "";
+        let respA = item.respondent_address || "";
+        if (!respN && (item.respondents || item.respondent)) {
+          const sp = splitPartyNameAndAddress(item.respondents || item.respondent);
+          respN = sp.name; respA = sp.address;
+        }
+
         const rec = {
           id: "c_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
           hall: courtVal.includes("2") ? "II" : "I",
@@ -1018,8 +1109,12 @@ part8_features = """
           caseNo: cno,
           existing_case_no: cno,
           cnr: item.cnr || "",
-          applicants: item.applicants || item.applicant || "",
-          respondents: item.respondents || item.respondent || "",
+          applicant_name: appN,
+          applicant_address: appA,
+          respondent_name: respN,
+          respondent_address: respA,
+          applicants: (appN + (appA ? "\n" + appA : "")).trim() || item.applicants || "",
+          respondents: (respN + (respA ? "\n" + respA : "")).trim() || item.respondents || "",
           filedYear: parseInt(item.filedYear || item.filing_year || CURRENT_YEAR, 10),
           filing_year: parseInt(item.filedYear || item.filing_year || CURRENT_YEAR, 10),
           stageGroup: stageGrp,
@@ -1117,27 +1212,43 @@ part8_features = """
       }
 
       function exportCaseListAsCsv(cases, filename) {
-        const headers = ["Sl.", "Case No.", "Type", "Court Hall", "Applicants", "Respondents", "Filing Year", "Status", "Next Hearing / Dispose Date", "Current Stage", "Stage Group", "Extent", "Unit", "Survey No", "Village", "Taluk", "District", "Entry Date"];
-        const rows = cases.map((c, i) => [
-          i + 1,
-          `"${(c.caseNo || c.existing_case_no || "").replace(/"/g, '""')}"`,
-          c.type || c.case_type || "",
-          c.court || ("Hall " + (c.hall || "I")),
-          `"${(c.applicants || "").replace(/"/g, '""')}"`,
-          `"${(c.respondents || "").replace(/"/g, '""')}"`,
-          c.filedYear || c.filing_year || "",
-          c.status || c.caseMode || "Pending",
-          c.hearing_date || c.nextHearing || c.dispose_date || c.disposedDate || "",
-          `"${(c.currentStage || c.stage || "").replace(/"/g, '""')}"`,
-          `"${(c.stageGroup || c.stage_group || "").replace(/"/g, '""')}"`,
-          c.extent || c.landExtent || "",
-          c.unit || c.extentUnit || "",
-          `"${(c.surveyNo || c.survey_no || "").replace(/"/g, '""')}"`,
-          `"${(c.village || "").replace(/"/g, '""')}"`,
-          `"${(c.taluk || "").replace(/"/g, '""')}"`,
-          `"${(c.district || "").replace(/"/g, '""')}"`,
-          c.entryDate || c.entry_date || (c.createdAt ? c.createdAt.slice(0, 10) : "")
-        ]);
+        const headers = ["Sl.", "Case No.", "Type", "Court Hall", "Applicant Name", "Applicant Address", "Respondent Name", "Respondent Address", "Filing Year", "Status", "Next Hearing / Dispose Date", "Current Stage", "Stage Group", "Extent", "Unit", "Survey No", "Village", "Taluk", "District", "Entry Date"];
+        const rows = cases.map((c, i) => {
+          let appN = c.applicant_name || "";
+          let appA = c.applicant_address || "";
+          if (!appN && (c.applicants || c.applicant)) {
+            const sp = splitPartyNameAndAddress(c.applicants || c.applicant);
+            appN = sp.name; appA = sp.address;
+          }
+          let respN = c.respondent_name || "";
+          let respA = c.respondent_address || "";
+          if (!respN && (c.respondents || c.respondent)) {
+            const sp = splitPartyNameAndAddress(c.respondents || c.respondent);
+            respN = sp.name; respA = sp.address;
+          }
+          return [
+            i + 1,
+            `"${(c.caseNo || c.existing_case_no || "").replace(/"/g, '""')}"`,
+            c.type || c.case_type || "",
+            c.court || ("Hall " + (c.hall || "I")),
+            `"${(appN || "").replace(/"/g, '""')}"`,
+            `"${(appA || "").replace(/"/g, '""')}"`,
+            `"${(respN || "").replace(/"/g, '""')}"`,
+            `"${(respA || "").replace(/"/g, '""')}"`,
+            c.filedYear || c.filing_year || "",
+            c.status || c.caseMode || "Pending",
+            c.hearing_date || c.nextHearing || c.dispose_date || c.disposedDate || "",
+            `"${(c.currentStage || c.stage || "").replace(/"/g, '""')}"`,
+            `"${(c.stageGroup || c.stage_group || "").replace(/"/g, '""')}"`,
+            c.extent || c.landExtent || "",
+            c.unit || c.extentUnit || "",
+            `"${(c.surveyNo || c.survey_no || "").replace(/"/g, '""')}"`,
+            `"${(c.village || "").replace(/"/g, '""')}"`,
+            `"${(c.taluk || "").replace(/"/g, '""')}"`,
+            `"${(c.district || "").replace(/"/g, '""')}"`,
+            c.entryDate || c.entry_date || (c.createdAt ? c.createdAt.slice(0, 10) : "")
+          ];
+        });
         const csvContent = "\\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\\n");
         downloadBlob(csvContent, filename, "text/csv;charset=utf-8;");
       }
@@ -1254,11 +1365,29 @@ part8_features = """
         const cnrEl = document.getElementById("fCnr");
         if (cnrEl) cnrEl.value = data.cnr || "";
 
-        const appEl = document.getElementById("fApplicants");
-        if (appEl) appEl.value = data.applicants || data.applicant || "";
+        const appNameEl = document.getElementById("fApplicantName");
+        const respNameEl = document.getElementById("fRespondentName");
+        const appAddrEl = document.getElementById("fApplicantAddress");
+        const respAddrEl = document.getElementById("fRespondentAddress");
 
-        const respEl = document.getElementById("fRespondents");
-        if (respEl) respEl.value = data.respondents || data.respondent || "";
+        let appN = data.applicant_name || "";
+        let appA = data.applicant_address || "";
+        if (!appN && (data.applicants || data.applicant)) {
+          const sp = splitPartyNameAndAddress(data.applicants || data.applicant);
+          appN = sp.name; appA = sp.address;
+        }
+
+        let respN = data.respondent_name || "";
+        let respA = data.respondent_address || "";
+        if (!respN && (data.respondents || data.respondent)) {
+          const sp = splitPartyNameAndAddress(data.respondents || data.respondent);
+          respN = sp.name; respA = sp.address;
+        }
+
+        if (appNameEl) appNameEl.value = appN;
+        if (appAddrEl) appAddrEl.value = appA;
+        if (respNameEl) respNameEl.value = respN;
+        if (respAddrEl) respAddrEl.value = respA;
 
         const sgroupEl = document.getElementById("fStageGroup");
         const stageVal = data.currentStage || data.stage || data.sub_stage || "";
@@ -1973,13 +2102,21 @@ part8_features = """
                           <option value="Court Hall No.2">Court Hall No.2</option>
                         </select>
                       </div>
-                      <div style="grid-column: span 2;">
-                        <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Applicants (English)</label>
-                        <input type="text" id="scanFldApplicants" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
+                      <div>
+                        <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Applicant Name(s)</label>
+                        <input type="text" id="scanFldApplicantName" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
                       </div>
-                      <div style="grid-column: span 2;">
-                        <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Respondents (English)</label>
-                        <input type="text" id="scanFldRespondents" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
+                      <div>
+                        <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Respondent Name(s)</label>
+                        <input type="text" id="scanFldRespondentName" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
+                      </div>
+                      <div>
+                        <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Applicant Address</label>
+                        <input type="text" id="scanFldApplicantAddress" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
+                      </div>
+                      <div>
+                        <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Respondent Address</label>
+                        <input type="text" id="scanFldRespondentAddress" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
                       </div>
                       <div>
                         <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Current Stage</label>
@@ -2098,8 +2235,10 @@ part8_features = """
 
           const fCaseNo = document.getElementById("scanFldCaseNo");
           const fCourt = document.getElementById("scanFldCourt");
-          const fApplicants = document.getElementById("scanFldApplicants");
-          const fRespondents = document.getElementById("scanFldRespondents");
+          const fAppName = document.getElementById("scanFldApplicantName");
+          const fRespName = document.getElementById("scanFldRespondentName");
+          const fAppAddr = document.getElementById("scanFldApplicantAddress");
+          const fRespAddr = document.getElementById("scanFldRespondentAddress");
           const fStage = document.getElementById("scanFldStage");
           const fHearing = document.getElementById("scanFldHearing");
           const fExtent = document.getElementById("scanFldExtent");
@@ -2108,11 +2247,27 @@ part8_features = """
           const fVillage = document.getElementById("scanFldVillage");
           const jsonArea = document.getElementById("scanExtractedJson");
 
+          let curAppN = cur.applicant_name || "";
+          let curAppA = cur.applicant_address || "";
+          if (!curAppN && (cur.applicants || cur.applicant)) {
+            const sp = splitPartyNameAndAddress(cur.applicants || cur.applicant);
+            curAppN = sp.name; curAppA = sp.address;
+          }
+
+          let curRespN = cur.respondent_name || "";
+          let curRespA = cur.respondent_address || "";
+          if (!curRespN && (cur.respondents || cur.respondent)) {
+            const sp = splitPartyNameAndAddress(cur.respondents || cur.respondent);
+            curRespN = sp.name; curRespA = sp.address;
+          }
+
           const chFromFn = extractCourtHallFromFilename(cur.name || cur.path || cur.file_path || "");
           if (fCaseNo) fCaseNo.value = extractCaseNumberOnly(cur.caseNo || cur.existing_case_no || "");
           if (fCourt) fCourt.value = chFromFn || cur.court || "Court Hall No.1";
-          if (fApplicants) fApplicants.value = cur.applicants || cur.applicant || "";
-          if (fRespondents) fRespondents.value = cur.respondents || cur.respondent || "";
+          if (fAppName) fAppName.value = curAppN;
+          if (fRespName) fRespName.value = curRespN;
+          if (fAppAddr) fAppAddr.value = curAppA;
+          if (fRespAddr) fRespAddr.value = curRespA;
           if (fStage) fStage.value = cur.currentStage || cur.stage || "Appearance";
           if (fHearing) fHearing.value = cur.nextHearing || cur.hearing_date || "";
           if (fExtent) fExtent.value = cur.landExtent || cur.extent || "01";
@@ -2127,8 +2282,10 @@ part8_features = """
           const cur = scannedCases[selectedIdx];
           const fCaseNo = document.getElementById("scanFldCaseNo");
           const fCourt = document.getElementById("scanFldCourt");
-          const fApplicants = document.getElementById("scanFldApplicants");
-          const fRespondents = document.getElementById("scanFldRespondents");
+          const fAppName = document.getElementById("scanFldApplicantName");
+          const fRespName = document.getElementById("scanFldRespondentName");
+          const fAppAddr = document.getElementById("scanFldApplicantAddress");
+          const fRespAddr = document.getElementById("scanFldRespondentAddress");
           const fStage = document.getElementById("scanFldStage");
           const fHearing = document.getElementById("scanFldHearing");
           const fExtent = document.getElementById("scanFldExtent");
@@ -2140,8 +2297,14 @@ part8_features = """
             cur.existing_case_no = cur.caseNo;
           }
           if (fCourt) cur.court = fCourt.value;
-          if (fApplicants) { cur.applicants = fApplicants.value; cur.applicant = fApplicants.value; }
-          if (fRespondents) { cur.respondents = fRespondents.value; cur.respondent = fRespondents.value; }
+          if (fAppName) cur.applicant_name = fAppName.value;
+          if (fAppAddr) cur.applicant_address = fAppAddr.value;
+          if (fRespName) cur.respondent_name = fRespName.value;
+          if (fRespAddr) cur.respondent_address = fRespAddr.value;
+          cur.applicants = (cur.applicant_name + (cur.applicant_address ? "\n" + cur.applicant_address : "")).trim();
+          cur.applicant = cur.applicants;
+          cur.respondents = (cur.respondent_name + (cur.respondent_address ? "\n" + cur.respondent_address : "")).trim();
+          cur.respondent = cur.respondents;
           if (fStage) { cur.currentStage = fStage.value; cur.stage = fStage.value; }
           if (fHearing) { cur.nextHearing = fHearing.value; cur.hearing_date = fHearing.value; }
           if (fExtent) { cur.landExtent = fExtent.value; cur.extent = fExtent.value; }
@@ -2155,7 +2318,7 @@ part8_features = """
           if (titleEl) titleEl.textContent = cur.caseNo;
         }
 
-        ["scanFldCaseNo", "scanFldCourt", "scanFldApplicants", "scanFldRespondents", "scanFldStage", "scanFldHearing", "scanFldExtent", "scanFldSurvey", "scanFldVillage"].forEach(id => {
+        ["scanFldCaseNo", "scanFldCourt", "scanFldApplicantName", "scanFldRespondentName", "scanFldApplicantAddress", "scanFldRespondentAddress", "scanFldStage", "scanFldHearing", "scanFldExtent", "scanFldSurvey", "scanFldVillage"].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.oninput = syncActiveCaseFromInputs;
         });
@@ -2287,6 +2450,10 @@ part8_features = """
           const merged = Object.assign({}, scannedCases[0]);
           for (let i = 1; i < scannedCases.length; i++) {
             const sc = scannedCases[i];
+            if (!merged.applicant_name && sc.applicant_name) merged.applicant_name = sc.applicant_name;
+            if (!merged.applicant_address && sc.applicant_address) merged.applicant_address = sc.applicant_address;
+            if (!merged.respondent_name && sc.respondent_name) merged.respondent_name = sc.respondent_name;
+            if (!merged.respondent_address && sc.respondent_address) merged.respondent_address = sc.respondent_address;
             if (!merged.applicants && sc.applicants) merged.applicants = sc.applicants;
             if (!merged.respondents && sc.respondents) merged.respondents = sc.respondents;
             if (!merged.nextHearing && sc.nextHearing) merged.nextHearing = sc.nextHearing;
@@ -2495,6 +2662,10 @@ part8_features = """
                   type: c.type,
                   court: c.court,
                   filedYear: c.filedYear,
+                  applicant_name: c.applicant_name || "",
+                  applicant_address: c.applicant_address || "",
+                  respondent_name: c.respondent_name || "",
+                  respondent_address: c.respondent_address || "",
                   applicants: c.applicants || c.applicant || "",
                   respondents: c.respondents || c.respondent || "",
                   hearing_date: c.nextHearing || c.hearing_date,
@@ -2705,7 +2876,7 @@ part8_features = """
           }
 
           if (q) {
-            const blob = `${c.caseNo || ''} ${c.existing_case_no || ''} ${c.cnr || ''} ${c.applicants || ''} ${c.respondents || ''} ${c.village || ''} ${c.taluk || ''} ${c.district || ''} ${c.surveyNo || ''} ${c.survey_no || ''} ${c.currentStage || ''} ${c.stage || ''}`.toLowerCase();
+            const blob = `${c.caseNo || ''} ${c.existing_case_no || ''} ${c.cnr || ''} ${c.applicant_name || ''} ${c.applicant_address || ''} ${c.respondent_name || ''} ${c.respondent_address || ''} ${c.applicants || ''} ${c.respondents || ''} ${c.village || ''} ${c.taluk || ''} ${c.district || ''} ${c.surveyNo || ''} ${c.survey_no || ''} ${c.currentStage || ''} ${c.stage || ''}`.toLowerCase();
             if (!blob.includes(q)) return false;
           }
           return true;
@@ -2930,12 +3101,20 @@ part8_features = """
             <div class="case-section-header">Parties (Applicants &amp; Respondents)</div>
             <div class="grid">
               <div class="field">
-                <label>Applicants (Names &amp; Addresses in English)</label>
-                <textarea id="fApplicants" rows="3" placeholder="Applicant names and addresses in English..."></textarea>
+                <label>Applicant Name(s)</label>
+                <textarea id="fApplicantName" rows="2" placeholder="Applicant name(s) in English..."></textarea>
               </div>
               <div class="field">
-                <label>Respondents (Names &amp; Addresses in English)</label>
-                <textarea id="fRespondents" rows="3" placeholder="Respondent names and addresses in English..."></textarea>
+                <label>Respondent Name(s)</label>
+                <textarea id="fRespondentName" rows="2" placeholder="Respondent name(s) in English (e.g. 1. Name S/o... 2. Name W/o...)..."></textarea>
+              </div>
+              <div class="field">
+                <label>Applicant Address</label>
+                <textarea id="fApplicantAddress" rows="2" placeholder="Applicant address in English (Taluk, District, etc.)..."></textarea>
+              </div>
+              <div class="field">
+                <label>Respondent Address</label>
+                <textarea id="fRespondentAddress" rows="2" placeholder="Respondent address in English (Village, Hobli, Taluk, District, etc.)..."></textarea>
               </div>
             </div>
 
@@ -3191,10 +3370,14 @@ part8_features = """
           activeEditCaseId = null;
           document.getElementById("fCaseNo").value = "";
           document.getElementById("fCnr").value = "";
-          const appEl = document.getElementById("fApplicants");
-          if (appEl) appEl.value = "";
-          const respEl = document.getElementById("fRespondents");
-          if (respEl) respEl.value = "";
+          const appNEl = document.getElementById("fApplicantName");
+          if (appNEl) appNEl.value = "";
+          const appAEl = document.getElementById("fApplicantAddress");
+          if (appAEl) appAEl.value = "";
+          const respNEl = document.getElementById("fRespondentName");
+          if (respNEl) respNEl.value = "";
+          const respAEl = document.getElementById("fRespondentAddress");
+          if (respAEl) respAEl.value = "";
           document.getElementById("fExtent").value = "";
           document.getElementById("fSurveyNo").value = "";
           document.getElementById("fWardNo").value = "";
@@ -3241,6 +3424,11 @@ part8_features = """
           const dDate = isDisp ? (document.getElementById("fDisposeDate")?.value || "") : "";
           const dNat = isDisp ? (document.getElementById("fDisposalNature")?.value || "Disposed") : "";
 
+          const appN = document.getElementById("fApplicantName")?.value.trim() || "";
+          const appA = document.getElementById("fApplicantAddress")?.value.trim() || "";
+          const respN = document.getElementById("fRespondentName")?.value.trim() || "";
+          const respA = document.getElementById("fRespondentAddress")?.value.trim() || "";
+
           const rec = {
             id: activeEditCaseId || ("c_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7)),
             hall: hall,
@@ -3251,8 +3439,12 @@ part8_features = """
             existing_case_no: rawNo,
             fullCaseNo: fullCaseNo,
             cnr: document.getElementById("fCnr")?.value.trim() || "",
-            applicants: document.getElementById("fApplicants")?.value.trim() || "",
-            respondents: document.getElementById("fRespondents")?.value.trim() || "",
+            applicant_name: appN,
+            applicant_address: appA,
+            respondent_name: respN,
+            respondent_address: respA,
+            applicants: (appN + (appA ? "\n" + appA : "")).trim(),
+            respondents: (respN + (respA ? "\n" + respA : "")).trim(),
             filedYear: year,
             filing_year: year,
             stageGroup: document.getElementById("fStageGroup")?.value || (STAGE_TO_GROUP[document.getElementById("fCurrentStage")?.value] || ""),
