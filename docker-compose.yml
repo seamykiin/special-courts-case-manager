@@ -1,0 +1,14 @@
+services:
+  special-courts:
+    build: .
+    container_name: special_courts_app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+    volumes:
+      - case_data:/root/.local/share/PendingCases
+
+volumes:
+  case_data:

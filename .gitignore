@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.DS_Store
+*.swp
+*.bak
+/tmp/
+*.log
+media_*
+.idea/
+.vscode/
+Case.code-workspace
