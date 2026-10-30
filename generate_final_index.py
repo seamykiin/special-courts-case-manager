@@ -1018,6 +1018,8 @@ part8_features = """
           caseNo: cno,
           existing_case_no: cno,
           cnr: item.cnr || "",
+          applicants: item.applicants || item.applicant || "",
+          respondents: item.respondents || item.respondent || "",
           filedYear: parseInt(item.filedYear || item.filing_year || CURRENT_YEAR, 10),
           filing_year: parseInt(item.filedYear || item.filing_year || CURRENT_YEAR, 10),
           stageGroup: stageGrp,
@@ -2285,6 +2287,8 @@ part8_features = """
           const merged = Object.assign({}, scannedCases[0]);
           for (let i = 1; i < scannedCases.length; i++) {
             const sc = scannedCases[i];
+            if (!merged.applicants && sc.applicants) merged.applicants = sc.applicants;
+            if (!merged.respondents && sc.respondents) merged.respondents = sc.respondents;
             if (!merged.nextHearing && sc.nextHearing) merged.nextHearing = sc.nextHearing;
             if ((!merged.currentStage || merged.currentStage === "Orders") && sc.currentStage && sc.currentStage !== "Orders") {
               merged.currentStage = sc.currentStage;
@@ -2305,6 +2309,7 @@ part8_features = """
             alert("No cases extracted yet. Click 'Upload Scan Images / PDFs' above to add documents.");
             return;
           }
+          syncActiveCaseFromInputs();
           ocrReviewQueue = scannedCases.slice();
           ocrQueueIndex = 0;
           renderReviewQueueBanner();
@@ -2490,6 +2495,8 @@ part8_features = """
                   type: c.type,
                   court: c.court,
                   filedYear: c.filedYear,
+                  applicants: c.applicants || c.applicant || "",
+                  respondents: c.respondents || c.respondent || "",
                   hearing_date: c.nextHearing || c.hearing_date,
                   stage: c.currentStage || c.stage,
                   stageGroup: c.stageGroup || c.stage_group,
