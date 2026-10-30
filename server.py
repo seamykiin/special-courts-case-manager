@@ -435,21 +435,8 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
                 court_val = ch_fn or ext.get("court") or "Court Hall No.1"
 
                 # Sub-stage and stage group extraction
-                p_stage = ext.get("stage") or ""
-                p_stgroup = ext.get("stage_group") or ""
-                if NOTICE_TO_RESPONDENT_REGEX.search(p_stage) or NOTICE_TO_RESPONDENT_REGEX.search(p.get("raw_text", "")):
-                    p_stage = "Notice to Respondent"
-                    p_stgroup = "Notice / Summons / Service"
-                elif not p_stage or p_stage in ("Appearance of Accused", "Appearance of Respondent/Accused", "Hearing"):
-                    p_desc, p_grp = summarize_call_description_from_window(p.get("raw_text", ""))
-                    if p_desc:
-                        p_stage = p_desc
-                        p_stgroup = p_grp
-                    else:
-                        p_stage = p_stage or "Appearance of Respondent/Accused"
-                        p_stgroup = p_stgroup or "Appearance"
-                elif not p_stgroup:
-                    p_stgroup = infer_stage_group_from_description(p_stage)
+                p_stage = ext.get("stage") or "Appearance of Respondent/Accused"
+                p_stgroup = ext.get("stage_group") or STAGE_TO_GROUP.get(p_stage, "Appearance")
 
                 output_cases.append({
                     "name": p["name"],
@@ -498,30 +485,8 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
                 type_code, prefix = format_case_type_and_prefix(ctype)
                 full_case_no = f"{prefix}.No.{cno_num}/{fyear}" if cno_num else f"{prefix}.No.New/{fyear}"
 
-                stage_val = ext.get("stage") or ""
-                stgroup_val = ext.get("stage_group") or ""
-
-                # Priority Rule: If there is notice to respondent, take Notice to Respondent only!
-                if NOTICE_TO_RESPONDENT_REGEX.search(stage_val) or NOTICE_TO_RESPONDENT_REGEX.search(raw_full):
-                    stage_val = "Notice to Respondent"
-                    stgroup_val = "Notice / Summons / Service"
-                elif not stage_val or stage_val in ("Appearance of Accused", "Appearance of Respondent/Accused", "Hearing"):
-                    # Check if a description can be created based on available sentences above next hearing date
-                    desc, grp = summarize_call_description_from_window(raw_full)
-                    if desc:
-                        stage_val = desc
-                        stgroup_val = grp
-                    elif re.search(r'(?i)\b(?:for\s+)?hbc(?:\s+finally)?\b|\bhearing\s+before\s+charge\b', raw_full):
-                        stage_val = "HBC"
-                        stgroup_val = "HBC"
-                    elif "witness summons" in raw_full.lower():
-                        stage_val = "Summons to Witness"
-                        stgroup_val = "Evidence"
-                    else:
-                        stage_val = stage_val or "Appearance of Respondent/Accused"
-                        stgroup_val = stgroup_val or "Appearance"
-                elif not stgroup_val:
-                    stgroup_val = infer_stage_group_from_description(stage_val)
+                stage_val = ext.get("stage") or "Appearance of Respondent/Accused"
+                stgroup_val = ext.get("stage_group") or STAGE_TO_GROUP.get(stage_val, "Appearance")
 
                 # Take court hall number from file name per user rule
                 ch_fn = extract_court_hall_from_filename(g.get("name", "")) or (extract_court_hall_from_filename(g["paths"][0]) if g.get("paths") else None)

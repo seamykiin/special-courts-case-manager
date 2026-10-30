@@ -1083,10 +1083,15 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
             break
 
     if not selected_sent:
-        selected_sent = cleaned_candidates[-1]
+        return "", ""
 
     # Clean leading order tags
     s_clean = re.sub(r"^(?:order\s*[:\-]|ಆದೇಶ\s*[:\-]|ನಡಾವಳಿ\s*[:\-])\s*", "", selected_sent, flags=re.I).strip()
+
+    # Reject OCR noise or strings with too few actual Kannada/English letters
+    clean_letters = re.findall(r"[\u0C80-\u0CFFa-zA-Z]", s_clean)
+    if len(clean_letters) < 6:
+        return "", ""
 
     # 1. Non-bailable warrant
     if re.search(r"ಜಾಮೀನು\s*ರಹಿತ\s*ವಾರಂಟ್", s_clean) or re.search(r"(?i)\b(?:issue|re[- ]?issue)?\s*(?:nbw|non[- ]?bailable\s+warrant)\b", s_clean):
@@ -1168,6 +1173,9 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
 
     # Distill into clean canonical description or concise sentence
     desc = re.sub(r"\s+", " ", s_clean).strip(" ,.-:;")
+    words = [w for w in re.split(r"\s+", desc) if len(w) > 1]
+    if len(words) < 2 or len(desc) < 6:
+        return "", ""
     if len(desc) > 85:
         cut = desc[:85]
         sp = cut.rfind(" ")
@@ -2299,9 +2307,8 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             if win_candidates:
                 # Sort by priority, then proximity closest to hearing date (highest start pos)
                 win_candidates.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
-                if win_candidates[0][0] >= 10:
-                    assigned_sub_stage = win_candidates[0][3]
-                    assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage)
+                assigned_sub_stage = win_candidates[0][3]
+                assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage)
     elif cleaned.get("hearing_date"):
         hd_val = cleaned["hearing_date"]
         m_hd = re.search(r"(\d{4})-(\d{2})-(\d{2})", hd_val)
@@ -2321,14 +2328,6 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             window_above = raw_clean_text[-1000:] if raw_clean_text.strip() else text_clean[-1000:]
     else:
         window_above = raw_clean_text[-1000:] if raw_clean_text.strip() else text_clean[-1000:]
-
-    # Rule: If there is no matching sub stage, create a description based on the available sentences
-    # above the next hearing date, which summarizes what the next call is about!
-    if not assigned_sub_stage and window_above:
-        desc, grp = summarize_call_description_from_window(window_above, full_text=raw_clean_text)
-        if desc:
-            assigned_sub_stage = desc
-            assigned_stage_group = grp
 
     # Step 2: Fallback to broader prior text before quorum/end if immediate window had no specific match
     if not assigned_sub_stage:
@@ -2360,9 +2359,8 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
 
             if stage_candidates:
                 stage_candidates.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
-                if stage_candidates[0][0] >= 10:
-                    assigned_sub_stage = stage_candidates[0][3]
-                    assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage)
+                assigned_sub_stage = stage_candidates[0][3]
+                assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage)
 
     # Step 3: Global fallback
     if not assigned_sub_stage:
@@ -2402,8 +2400,8 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             assigned_sub_stage = desc
             assigned_stage_group = grp
         else:
-            assigned_sub_stage = cleaned.get("stage") or "For Further Proceedings"
-            assigned_stage_group = infer_stage_group_from_description(assigned_sub_stage)
+            assigned_sub_stage = cleaned.get("stage") or "Appearance of Accused"
+            assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage, "Appearance")
 
     if not assigned_stage_group:
         assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage) or infer_stage_group_from_description(assigned_sub_stage)
