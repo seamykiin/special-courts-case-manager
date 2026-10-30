@@ -22,12 +22,16 @@ try:
     import tkinter as tk
     from tkinter import filedialog, messagebox, ttk
     TK_AVAILABLE = True
-except (ImportError, ModuleNotFoundError):
+    _TkBase = tk.Tk
+    _ToplevelBase = tk.Toplevel
+except (ImportError, ModuleNotFoundError, AttributeError):
     tk = None
     filedialog = None
     messagebox = None
     ttk = None
     TK_AVAILABLE = False
+    _TkBase = object
+    _ToplevelBase = object
 
 try:
     from PIL import Image, ImageSequence
@@ -2189,7 +2193,7 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
     return list(grouped_map.values())
 
 
-class BatchDashboardWindow(tk.Toplevel):
+class BatchDashboardWindow(_ToplevelBase):
     def __init__(self, parent: CaseApp, files_to_process: list[str], engine: str, model_name: str):
         super().__init__(parent)
         self.parent = parent
@@ -2538,7 +2542,7 @@ class BatchDashboardWindow(tk.Toplevel):
         messagebox.showinfo("Export Successful", f"Saved {len(self.grouped_cases)} cases to:\n{out_file}", parent=self)
 
 
-class CaseApp(tk.Tk):
+class CaseApp(_TkBase):
     def __init__(self):
         super().__init__()
         self.case_mode = "Pending"

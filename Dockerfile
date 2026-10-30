@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr-kan \
     tesseract-ocr-eng \
     poppler-utils \
+    python3-tk \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
