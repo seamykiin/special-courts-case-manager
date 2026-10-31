@@ -770,6 +770,26 @@ body {
   color: var(--danger);
 }
 
+
+button * {
+  pointer-events: none;
+}
+.form-actions-bar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-top: 24px !important;
+  flex-wrap: wrap !important;
+  border-top: 1px solid var(--border-card) !important;
+  padding: 14px 20px !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  background: #ffffff !important;
+  box-shadow: 0 -4px 12px rgba(16, 24, 40, 0.05) !important;
+  border-radius: 0 0 12px 12px !important;
+  z-index: 15 !important;
+}
+
 .form-actions-bar {
   display: flex;
   align-items: center;
@@ -908,7 +928,7 @@ part2_body = """  <body>
 
         <!-- Navigation Menu -->
         <nav id="nav">
-          <button data-view="navigator" class="active">
+          <button data-view="navigator" onclick="switchView('navigator')" class="active">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="7" height="7"></rect>
               <rect x="14" y="3" width="7" height="7"></rect>
@@ -917,7 +937,7 @@ part2_body = """  <body>
             </svg>
             <span class="navlabel">Case Navigator</span>
           </button>
-          <button data-view="pendingentry">
+          <button data-view="pendingentry" onclick="switchView('pendingentry')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
@@ -927,7 +947,7 @@ part2_body = """  <body>
             </svg>
             <span class="navlabel">Pending Cases Entry</span>
           </button>
-          <button data-view="legacy">
+          <button data-view="legacy" onclick="switchView('legacy')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
               <polyline points="2 17 12 22 22 17"></polyline>
@@ -935,7 +955,7 @@ part2_body = """  <body>
             </svg>
             <span class="navlabel">Legacy Case Entry</span>
           </button>
-          <button data-view="export">
+          <button data-view="export" onclick="switchView('export')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
@@ -978,12 +998,12 @@ part2_body = """  <body>
           <div class="header-right-controls">
             <!-- Stepper Progress Bar matching reference screenshot -->
             <div class="stepper-bar" id="topStepperBar">
-              <div class="stepper-segment active" title="Step 1"></div>
-              <div class="stepper-segment active" title="Step 2"></div>
-              <div class="stepper-segment" title="Step 3"></div>
-              <div class="stepper-segment" title="Step 4"></div>
+              <div class="stepper-segment active" onclick="switchView('navigator')" style="cursor:pointer;" title="Step 1: Case Navigator"></div>
+              <div class="stepper-segment active" onclick="switchView('pendingentry')" style="cursor:pointer;" title="Step 2: Pending Cases Entry"></div>
+              <div class="stepper-segment" onclick="switchView('legacy')" style="cursor:pointer;" title="Step 3: Legacy Case Entry"></div>
+              <div class="stepper-segment" onclick="switchView('export')" style="cursor:pointer;" title="Step 4: Export &amp; Backup"></div>
             </div>
-            <button class="btn-mode-toggle" id="modeToggleBtn">Switch to Disposed Mode</button>
+            <button class="btn-mode-toggle" id="modeToggleBtn" onclick="toggleMode()">Switch to Disposed Mode</button>
           </div>
         </div>
 
@@ -992,12 +1012,12 @@ part2_body = """  <body>
           <span class="status-text" id="statusDbLbl">Database: SQLite / Local Storage (56 records)</span>
           <div class="actions-group">
             <span class="badge-total-records" id="totalBadgeLbl">Total Records: 56</span>
-            <button class="btn-case-action" id="topExportCsvBtn">Export CSV</button>
-            <button class="btn-case-action" id="topExportJsonBtn">Export JSON</button>
-            <button class="btn-case-action" id="topScanBtn">🦙 Scan Images</button>
-            <button class="btn-case-primary" id="topBatchBtn">⚡ Batch Process</button>
-            <button class="btn-case-primary" id="topComparePdfBtn">📄 Compare PDF</button>
-            <button class="btn-case-action" id="topPdfFolderBtn">📁 PDF Folder</button>
+            <button class="btn-case-action" id="topExportCsvBtn" onclick="exportAllCasesCsv()">Export CSV</button>
+            <button class="btn-case-action" id="topExportJsonBtn" onclick="exportAllCasesJson()">Export JSON</button>
+            <button class="btn-case-action" id="topScanBtn" onclick="openScanModal()">🦙 Scan Images</button>
+            <button class="btn-case-primary" id="topBatchBtn" onclick="openBatchModal()">⚡ Batch Process</button>
+            <button class="btn-case-primary" id="topComparePdfBtn" onclick="togglePdfSideBySide()">📄 Compare PDF</button>
+            <button class="btn-case-action" id="topPdfFolderBtn" onclick="openPdfFolderModal()">📁 PDF Folder</button>
           </div>
         </div>
 
@@ -3953,12 +3973,14 @@ part8_features = """
                 populateFormFromObject(ocrReviewQueue[ocrQueueIndex]);
                 loadDocumentForCase(ocrReviewQueue[ocrQueueIndex]);
               }
-            } else if (cases && cases.length > 0) {
-              let curIdx = activeEditCaseId ? cases.findIndex(c => c.id === activeEditCaseId) : -1;
+            } else if (state.cases && state.cases.length > 0) {
+              let curIdx = activeEditCaseId ? state.cases.findIndex(c => c.id === activeEditCaseId) : -1;
               if (curIdx > 0) {
-                editCase(cases[curIdx - 1].id);
+                populateFormFromObject(state.cases[curIdx - 1]);
+                loadDocumentForCase(state.cases[curIdx - 1]);
               } else if (curIdx === -1) {
-                editCase(cases[0].id);
+                populateFormFromObject(state.cases[0]);
+                loadDocumentForCase(state.cases[0]);
               }
             }
           };
@@ -3975,12 +3997,14 @@ part8_features = """
                 populateFormFromObject(ocrReviewQueue[ocrQueueIndex]);
                 loadDocumentForCase(ocrReviewQueue[ocrQueueIndex]);
               }
-            } else if (cases && cases.length > 0) {
-              let curIdx = activeEditCaseId ? cases.findIndex(c => c.id === activeEditCaseId) : -1;
-              if (curIdx >= 0 && curIdx < cases.length - 1) {
-                editCase(cases[curIdx + 1].id);
+            } else if (state.cases && state.cases.length > 0) {
+              let curIdx = activeEditCaseId ? state.cases.findIndex(c => c.id === activeEditCaseId) : -1;
+              if (curIdx >= 0 && curIdx < state.cases.length - 1) {
+                populateFormFromObject(state.cases[curIdx + 1]);
+                loadDocumentForCase(state.cases[curIdx + 1]);
               } else if (curIdx === -1) {
-                editCase(cases[0].id);
+                populateFormFromObject(state.cases[0]);
+                loadDocumentForCase(state.cases[0]);
               }
             }
           };
@@ -4223,6 +4247,25 @@ part8_features = """
         }
       }
 
+      
+      window.togglePdfSideBySide = togglePdfSideBySide;
+      window.openBatchModal = openBatchModal;
+      window.openScanModal = openScanModal;
+      window.openPdfFolderModal = openPdfFolderModal;
+      window.exportAllCasesCsv = exportAllCasesCsv;
+      window.exportAllCasesJson = exportAllCasesJson;
+      window.toggleMode = toggleMode;
+      window.switchView = switchView;
+      window.scrollToPrevPdfPage = () => { if (typeof activePdfCurrentPage !== "undefined" && activePdfCurrentPage > 1) scrollToPdfPage(activePdfCurrentPage - 1); };
+      window.scrollToNextPdfPage = () => { if (typeof activePdfCurrentPage !== "undefined" && activePdfCurrentPage < activePdfTotalPages) scrollToPdfPage(activePdfCurrentPage + 1); };
+      window.zoomInPdf = () => { if (typeof pdfCurrentZoom !== "undefined") { pdfCurrentZoom = Math.min(200, pdfCurrentZoom + 15); applyPdfTransform(); } };
+      window.zoomOutPdf = () => { if (typeof pdfCurrentZoom !== "undefined") { pdfCurrentZoom = Math.max(40, pdfCurrentZoom - 15); applyPdfTransform(); } };
+      window.rotatePdf = () => { if (typeof pdfCurrentRotation !== "undefined") { pdfCurrentRotation = (pdfCurrentRotation + 90) % 360; applyPdfTransform(); } };
+      window.hidePdfPane = hidePdfPane;
+      window.resetPdfZoomAndPan = resetPdfZoomAndPan;
+      window.saveCurrentFormEntry = () => { document.getElementById("fSaveBtn")?.click(); };
+      window.clearCurrentForm = () => { document.getElementById("fClearBtn")?.click(); };
+
       function switchView(viewName) {
         state.view = viewName;
         render();
@@ -4231,16 +4274,7 @@ part8_features = """
 
       (async function init() {
         try {
-          const root = document.getElementById("viewRoot");
-          if (root) root.innerHTML = `<div class="panel"><div class="empty">Loading register…</div></div>`;
-          
-          await window.auth.requireLogin();
-          await loadCases();
-          await loadCaseSeqCounters();
-          await loadFilings();
-          await loadBackupMeta();
-
-          // Wire Navigation Sidebar
+          // Wire Navigation Sidebar immediately
           document.querySelectorAll("#nav button").forEach(btn => {
             btn.onclick = () => switchView(btn.dataset.view);
           });
@@ -4261,7 +4295,7 @@ part8_features = """
             };
           }
 
-          // Wire Top App Controls
+          // Wire Top App Controls immediately
           const modeBtn = document.getElementById("modeToggleBtn");
           if (modeBtn) modeBtn.onclick = toggleMode;
 
@@ -4286,6 +4320,16 @@ part8_features = """
           wirePdfViewerControls();
           refreshPdfFolderStatus();
           applyModeUI();
+          render();
+
+          // Background async storage loading
+          await window.auth.requireLogin();
+          await loadCases();
+          await loadCaseSeqCounters();
+          await loadFilings();
+          await loadBackupMeta();
+
+          updateTopBarStats();
           render();
         } catch (err) {
           console.error("Initialization error:", err);
