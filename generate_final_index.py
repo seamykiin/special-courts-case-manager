@@ -36,314 +36,777 @@ print(f"Read index.html.bak: {len(lines)} lines")
 # Part 1: Head & Extra CSS
 extra_css = """
 /* ========================================================
-   THEME STYLES FROM CASE.PY (BURGUNDY & DEEP BLUE MODES)
+   MODERN MINIMALIST SAAS DASHBOARD THEME (UNTITLED UI / TAILWIND)
    ======================================================== */
 :root {
-  --primary-pending: #792f30;
-  --primary-disposed: #2b5876;
-  --header-bg: var(--primary-pending);
-  --header-sub: #f3dfdf;
-  --bar-bg: #f3f5f8;
-  --badge-bg: #e2e8f0;
-  --text-dark: #1e293b;
-  --text-muted: #64748b;
+  --bg-page: #f9fafb;
+  --bg-card: #ffffff;
+  --border-card: #eaecf0;
+  --border-input: #d0d5dd;
+  --border-focus: #12b76a;
+  --ring-focus: rgba(18, 183, 106, 0.14);
+  --primary: #12b76a;
+  --primary-hover: #0e9f5d;
+  --primary-active: #0b7a47;
+  --primary-light: #ecfdf3;
+  --primary-disposed: #6941c6;
+  --text-main: #101828;
+  --text-sec: #344054;
+  --text-muted: #667085;
+  --danger: #d92d20;
+  --danger-bg: #fee4e2;
+  --header-bg: #12b76a;
+  --primary-pending: #12b76a;
 }
 
-body.mode-disposed {
-  --header-bg: var(--primary-disposed);
-  --header-sub: #dbeafe;
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-/* Header bar matching case.py */
-.case-app-header {
-  background: var(--header-bg);
-  color: #ffffff;
-  padding: 12px 20px;
-  transition: background 0.25s ease;
-}
-.case-app-header .header-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.case-app-header h1.app-title {
+body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 19px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #ffffff;
-}
-.case-app-header p.app-subtitle {
-  margin: 4px 0 0 0;
-  font-size: 11.5px;
-  color: var(--header-sub);
-  opacity: 0.95;
-}
-.btn-mode-toggle {
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 4px;
-  padding: 6px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.btn-mode-toggle:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--bg-page) !important;
+  color: var(--text-main) !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Action & Status bar matching case.py */
-.case-action-bar {
-  background: #f3f5f8;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 8px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.case-action-bar .status-text {
-  font-size: 12px;
-  color: #52606d;
-  font-family: 'IBM Plex Mono', monospace;
-}
-.case-action-bar .actions-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.badge-total-records {
-  background: #e2e8f0;
-  color: #1e293b;
-  padding: 5px 12px;
-  border-radius: 4px;
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: -0.2px;
-}
-
-/* Review Queue Banner matching case.py */
-.queue-bar {
-  background: #fef3c7;
-  border-bottom: 1px solid #fde68a;
-  padding: 7px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.queue-bar .queue-title {
-  color: #92400e;
-  font-size: 12px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.queue-bar .queue-actions {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-/* Main Split layout (Left Form/Table, Right PDF Viewer) */
-.middle-paned-layout {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  width: 100%;
-  padding: 12px 16px;
-  box-sizing: border-box;
-}
-.main-view-container {
-  flex: 1 1 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  transition: flex 0.2s ease;
-}
-.middle-paned-layout.split-active .main-view-container {
-  flex: 1 1 calc(52% - 8px);
-  max-width: calc(52% - 8px);
-  min-width: 0;
-  overflow-x: hidden;
-}
-
-/* Side-by-side PDF Viewer Pane matching case.py */
-.pdf-side-pane {
-  flex: 1 1 calc(48% - 8px);
-  max-width: calc(48% - 8px);
-  min-width: 320px;
-  box-sizing: border-box;
-  position: sticky;
-  top: 10px;
-  height: calc(100vh - 120px);
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
-  z-index: 10;
-}
-
-/* Clean 2-column paired layout for Data Entry forms (no overlay/collision) */
-.grid,
-.middle-paned-layout .grid {
+/* Overall Grid Layout */
+.app {
   display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 12px 14px !important;
-  align-items: start !important;
+  grid-template-columns: 260px 1fr !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  background: var(--bg-page) !important;
+  transition: grid-template-columns 0.18s ease;
 }
-.grid .field,
-.middle-paned-layout .grid .field {
-  min-width: 0 !important;
+.app.sidebar-collapsed {
+  grid-template-columns: 74px 1fr !important;
+}
+
+/* Sidebar */
+.sidebar {
+  background: #ffffff !important;
+  border-right: 1px solid var(--border-card) !important;
+  color: var(--text-sec) !important;
   display: flex !important;
   flex-direction: column !important;
+  padding: 20px 16px !important;
+  height: 100vh !important;
+  overflow-y: auto !important;
+  box-shadow: none !important;
+  z-index: 20;
 }
-.grid .field.span2,
-.middle-paned-layout .grid .field.span2 {
-  grid-column: span 2 !important;
-}
-.grid .field label,
-.middle-paned-layout .grid .field label {
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  margin-bottom: 4px !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  color: #475569 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.3px !important;
-}
-.grid .field input,
-.grid .field select,
-.middle-paned-layout .grid .field input,
-.middle-paned-layout .grid .field select {
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  min-width: 0 !important;
-  height: 34px !important;
-  font-size: 12px !important;
-}
-.grid .field textarea,
-.middle-paned-layout .grid .field textarea {
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  min-width: 0 !important;
-  min-height: 68px !important;
-  font-size: 11.5px !important;
-  font-family: inherit !important;
-  padding: 6px 8px !important;
-  border: 1px solid #cbd5e1 !important;
-  border-radius: 4px !important;
-  resize: vertical !important;
-  line-height: 1.4 !important;
-}
-.middle-paned-layout .panel {
-  padding: 16px 18px !important;
-  box-sizing: border-box !important;
-}
-.pdf-top-bar {
-  background: #1e293b;
-  color: #f8fafc;
-  padding: 7px 10px;
+
+.sidebar-brand-box {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  margin-bottom: 20px;
+  padding: 0 4px;
 }
-.pdf-top-bar .pdf-title {
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
-}
-.pdf-controls-box {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-.pdf-btn-ctrl {
-  background: #334155;
-  color: #f8fafc;
-  border: none;
-  border-radius: 3px;
-  padding: 3px 7px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-.pdf-btn-ctrl:hover {
-  background: #475569;
-}
-.pdf-btn-ctrl.btn-danger {
-  background: #dc2626;
-  font-weight: bold;
-}
-.pdf-btn-ctrl.btn-danger:hover {
-  background: #b91c1c;
-}
-.pdf-viewport {
-  flex: 1;
-  background: #334155;
-  position: relative;
-  overflow: hidden;
+.brand-logo-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: grab;
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(18, 183, 106, 0.2);
+}
+.brand-title-text {
+  margin-left: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.brand-title-text h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.2px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.brand-title-text p {
+  margin: 2px 0 0 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-toggle {
+  all: unset;
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  transition: background 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+.sidebar-toggle:hover {
+  background: #f2f4f7;
+  color: var(--text-main);
+}
+
+.sidebar-search-box {
+  position: relative;
+  margin-bottom: 16px;
+}
+.sidebar-search-box input {
+  width: 100%;
+  height: 38px;
+  padding: 8px 36px 8px 12px;
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--text-main);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.sidebar-search-box input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--ring-focus);
+}
+.sidebar-search-icon {
+  position: absolute;
+  right: 12px;
+  top: 11px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+#nav {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  flex: 1 !important;
+  padding: 0 !important;
+}
+#nav button {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  width: 100% !important;
+  padding: 9px 12px !important;
+  border: none !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--text-sec) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  transition: background 0.12s, color 0.12s !important;
+  box-sizing: border-box !important;
+}
+#nav button:hover {
+  background: #f9fafb !important;
+  color: var(--text-main) !important;
+}
+#nav button.active {
+  background: #f2f4f7 !important;
+  color: var(--text-main) !important;
+  font-weight: 600 !important;
+}
+#nav button svg {
+  flex-shrink: 0 !important;
+  stroke: currentColor;
+}
+
+.sidebar-collapsed .brand-title-text,
+.sidebar-collapsed .sidebar-search-box,
+.sidebar-collapsed .navlabel,
+.sidebar-collapsed .sidebar-foot-box {
+  display: none !important;
+}
+.sidebar-collapsed .brand-logo-icon {
+  margin: 0 auto;
+}
+.sidebar-collapsed #nav button {
+  justify-content: center !important;
+  padding: 10px 0 !important;
+}
+
+.sidebar-foot-box {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-card);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sidebar-admin-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--text-sec);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.sidebar-admin-link:hover {
+  background: #f9fafb;
+  color: var(--text-main);
+}
+.sidebar-user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px;
+  border-radius: 8px;
+}
+.user-avatar-wrap {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.user-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.user-online-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  background: var(--primary);
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+}
+.user-info-text {
+  flex: 1;
+  min-width: 0;
+}
+.user-info-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.user-info-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Header bar */
+.case-app-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--border-card) !important;
+  padding: 16px 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  transition: none !important;
+}
+.header-left-title h1.app-title {
+  margin: 0 !important;
+  font-family: inherit !important;
+  font-size: 19px !important;
+  font-weight: 600 !important;
+  color: var(--text-main) !important;
+  letter-spacing: -0.2px !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header-left-title p.app-subtitle {
+  margin: 2px 0 0 0 !important;
+  font-size: 12px !important;
+  color: var(--text-muted) !important;
+}
+.header-right-controls {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.stepper-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.stepper-segment {
+  width: 52px;
+  height: 4px;
+  border-radius: 999px;
+  background: #eaecf0;
+  transition: background 0.25s ease;
+}
+.stepper-segment.active {
+  background: var(--primary);
+}
+.btn-mode-toggle {
+  background: #ffffff !important;
+  color: var(--text-sec) !important;
+  border: 1px solid var(--border-input) !important;
+  border-radius: 8px !important;
+  padding: 8px 14px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
+}
+.btn-mode-toggle:hover {
+  background: #f9fafb !important;
+  color: var(--text-main) !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Action & Status Bar */
+.case-action-bar {
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--border-card) !important;
+  padding: 10px 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+}
+.case-action-bar .status-text {
+  font-size: 12px !important;
+  color: var(--text-muted) !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 500 !important;
+}
+.case-action-bar .actions-group {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+.badge-total-records {
+  background: var(--primary-light) !important;
+  color: #027a48 !important;
+  border: 1px solid #d1fadf !important;
+  border-radius: 16px !important;
+  padding: 4px 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+}
+.btn-case-primary {
+  background: var(--primary) !important;
+  border: 1px solid var(--primary) !important;
+  color: #ffffff !important;
+  border-radius: 8px !important;
+  padding: 8px 15px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.btn-case-primary:hover {
+  background: var(--primary-hover) !important;
+  border-color: var(--primary-hover) !important;
+}
+.btn-case-action {
+  background: #ffffff !important;
+  border: 1px solid var(--border-input) !important;
+  color: var(--text-sec) !important;
+  border-radius: 8px !important;
+  padding: 8px 14px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.btn-case-action:hover {
+  background: #f9fafb !important;
+  color: var(--text-main) !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* OCR Review Queue */
+.queue-bar {
+  background: #fffaeb !important;
+  border-bottom: 1px solid #fedf89 !important;
+  padding: 10px 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+.queue-bar .queue-title {
+  color: #b54708 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+.queue-bar .queue-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+/* Main Split layout */
+.middle-paned-layout {
+  display: flex !important;
+  gap: 20px !important;
+  align-items: flex-start !important;
+  width: 100% !important;
+  padding: 20px 28px !important;
+  box-sizing: border-box !important;
+}
+.main-view-container {
+  flex: 1 1 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  transition: flex 0.2s ease !important;
+}
+.middle-paned-layout.split-active .main-view-container {
+  flex: 1 1 calc(52% - 10px) !important;
+  max-width: calc(52% - 10px) !important;
+  overflow-x: hidden !important;
+}
+
+/* PDF Side Pane */
+.pdf-side-pane {
+  flex: 1 1 calc(48% - 10px) !important;
+  max-width: calc(48% - 10px) !important;
+  min-width: 320px !important;
+  box-sizing: border-box !important;
+  position: sticky !important;
+  top: 16px !important;
+  height: calc(100vh - 120px) !important;
+  background: #ffffff !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 18px rgba(16, 24, 40, 0.08) !important;
+  z-index: 10 !important;
+}
+.pdf-top-bar {
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--border-card) !important;
+  color: var(--text-main) !important;
+  padding: 10px 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+.pdf-top-bar .pdf-title {
+  color: var(--text-main) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 180px !important;
+}
+.pdf-controls-box {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+.pdf-btn-ctrl {
+  background: #f2f4f7 !important;
+  color: var(--text-sec) !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 6px !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.12s !important;
+}
+.pdf-btn-ctrl:hover {
+  background: #e4e7ec !important;
+  color: var(--text-main) !important;
+}
+.pdf-btn-ctrl.btn-danger {
+  background: #fee4e2 !important;
+  color: var(--danger) !important;
+  border-color: #fecdca !important;
+}
+.pdf-viewport {
+  flex: 1 !important;
+  background: #1e293b !important;
+  position: relative !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 .pdf-footer-bar {
-  background: #e2e8f0;
-  color: #475569;
-  padding: 4px 10px;
-  font-size: 11px;
+  background: #ffffff !important;
+  border-top: 1px solid var(--border-card) !important;
+  color: var(--text-muted) !important;
+  padding: 8px 14px !important;
+  font-size: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+/* Panel & Modern Row-based Form Layout */
+.panel {
+  background: #ffffff !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 12px !important;
+  padding: 28px !important;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04), 0 1px 2px rgba(16, 24, 40, 0.02) !important;
+  margin-bottom: 20px !important;
+  box-sizing: border-box !important;
+}
+.form-main-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-card);
+}
+.form-main-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.form-mode-tag {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.form-row-group {
+  display: flex;
+  gap: 32px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border-card);
+  box-sizing: border-box;
+}
+.form-row-group:last-of-type {
+  border-bottom: none;
+}
+.form-row-label {
+  width: 220px;
+  flex-shrink: 0;
+}
+.form-row-label h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-sec);
+}
+.form-row-label p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.form-row-fields {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.form-row-fields .field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.form-row-fields .field.span2 {
+  grid-column: span 2;
+}
+.form-row-fields label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-sec);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.form-row-fields input,
+.form-row-fields select {
+  width: 100% !important;
+  height: 42px !important;
+  padding: 9px 14px !important;
+  border: 1px solid var(--border-input) !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  color: var(--text-main) !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  transition: all 0.15s ease !important;
+}
+.form-row-fields select {
+  appearance: none !important;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2214%22%20height%3D%2214%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23667085%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  padding-right: 36px !important;
+}
+.form-row-fields textarea {
+  width: 100% !important;
+  min-height: 72px !important;
+  padding: 10px 14px !important;
+  border: 1px solid var(--border-input) !important;
+  border-radius: 8px !important;
+  font-size: 13.5px !important;
+  line-height: 1.45 !important;
+  color: var(--text-main) !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
+  outline: none !important;
+  resize: vertical !important;
+  box-sizing: border-box !important;
+  transition: all 0.15s ease !important;
+}
+.form-row-fields input:focus,
+.form-row-fields select:focus,
+.form-row-fields textarea:focus {
+  border-color: var(--border-focus) !important;
+  box-shadow: 0 0 0 4px var(--ring-focus) !important;
 }
 
-/* Sections inside Data Entry Card */
-.case-section-header {
-  color: var(--header-bg);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  margin: 14px 0 6px 0;
-  padding-bottom: 3px;
-  border-bottom: 2px solid #e2e8f0;
+/* Upload Dropzone matching screenshot */
+.upload-dropzone {
+  border: 2px dashed var(--border-card);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
 }
-.dup-status-lbl {
-  color: #dc2626;
-  font-size: 11.5px;
-  font-weight: 700;
-  background: #fee2e2;
-  border: 1px solid #fca5a5;
-  border-radius: 4px;
-  padding: 6px 10px;
-  margin: 4px 0 10px 0;
+.upload-dropzone:hover {
+  border-color: var(--border-focus);
+  background: #fcfdfd;
+}
+.upload-dropzone-icon {
+  margin-bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #f9fafb;
+  border: 1px solid var(--border-card);
+}
+.upload-dropzone-text {
+  font-size: 14px;
+  color: #475467;
+  margin-bottom: 4px;
+}
+.upload-dropzone-text .dropzone-link {
+  color: var(--primary);
+  font-weight: 600;
+}
+.upload-dropzone-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.dropzone-file-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: #f9fafb;
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-sec);
+}
+.dropzone-remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 0 2px;
+  margin-left: 4px;
+}
+.dropzone-remove-btn:hover {
+  color: var(--danger);
 }
 
-/* Bottom Pane: Entered Cases Table + Date Summary Table */
+.form-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border-card);
+  padding-top: 20px;
+}
+
+/* Navigator Table Modern Styles */
+.filters {
+  display: flex !important;
+  gap: 10px !important;
+  margin-bottom: 16px !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+}
+.filters input[type="text"] {
+  height: 40px !important;
+  border: 1px solid var(--border-input) !important;
+  border-radius: 8px !important;
+  padding: 8px 14px !important;
+  font-size: 13.5px !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
+}
+.filters select {
+  height: 40px !important;
+  border: 1px solid var(--border-input) !important;
+  border-radius: 8px !important;
+  padding: 8px 32px 8px 12px !important;
+  font-size: 13.5px !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
+}
 .navigator-split-grid {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   align-items: flex-start;
   width: 100%;
 }
@@ -355,172 +818,60 @@ body.mode-disposed {
   flex: 0 0 310px;
   width: 310px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 10px 12px;
-  box-sizing: border-box;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
 }
 .navigator-summary-card h4 {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--header-bg);
-  text-transform: uppercase;
-}
-.navigator-summary-card .summary-total {
-  font-size: 11.5px;
-  color: #52606d;
-  margin: 2px 0 8px 0;
-}
-.date-summary-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11.5px;
-}
-.date-summary-table th {
-  background: #f1f5f9;
-  color: #475569;
-  padding: 4px 6px;
-  text-align: center;
-  border-bottom: 1px solid #cbd5e1;
+  margin: 0 0 6px 0;
+  font-size: 14px;
   font-weight: 600;
-}
-.date-summary-table td {
-  padding: 4px 6px;
-  border-bottom: 1px solid #f1f5f9;
-  text-align: center;
-  font-family: 'IBM Plex Mono', monospace;
-  cursor: pointer;
-}
-.date-summary-table tr:hover td {
-  background: #f8fafc;
-}
-.date-summary-table tr.active td {
-  background: #e2e8f0;
-  font-weight: bold;
-  color: var(--header-bg);
+  color: var(--text-main);
 }
 
-/* Multi-selection bar */
-.table-selection-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-.btn-case-action {
-  background: #ffffff;
-  color: #334155;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 11.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.12s;
-}
-.btn-case-action:hover {
-  background: #f8fafc;
-  border-color: #94a3b8;
-}
-.btn-case-primary {
-  background: var(--header-bg);
-  color: #ffffff;
-  border: 1px solid var(--header-bg);
-  border-radius: 4px;
-  padding: 4px 12px;
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.12s;
-}
-.btn-case-primary:hover {
-  opacity: 0.9;
+@media (max-width: 1280px) {
+  .middle-paned-layout.split-active .form-row-group {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  .middle-paned-layout.split-active .form-row-label {
+    width: 100% !important;
+  }
 }
 
-/* ========================================================
-   MODAL OVERLAY & DIALOG STYLES (BATCH PROCESS & SCAN IMAGES)
-   ======================================================== */
-.modal-backdrop, .modal-bg {
-  position: fixed !important;
-  inset: 0 !important;
-  background: rgba(15, 23, 42, 0.65) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  z-index: 999999 !important;
-  backdrop-filter: blur(2px) !important;
-  padding: 16px !important;
-  box-sizing: border-box !important;
+/* Modals */
+.modal-overlay {
+  background: rgba(16, 24, 40, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
 }
-
-.modal-backdrop .modal, .modal-bg .modal {
+.modal-card {
   background: #ffffff !important;
-  border-radius: 8px !important;
-  border: 1px solid #cbd5e1 !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.1) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  max-height: 90vh !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  position: relative !important;
-  animation: modalFadeIn 0.16s ease-out !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 20px 24px -4px rgba(16, 24, 40, 0.08), 0 8px 8px -4px rgba(16, 24, 40, 0.03) !important;
 }
-
-@keyframes modalFadeIn {
-  from {
-    transform: scale(0.97);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
 .modal-head {
-  padding: 12px 18px !important;
-  border-bottom: 1px solid #e2e8f0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  background: #f8fafc !important;
+  padding: 16px 20px !important;
+  border-bottom: 1px solid var(--border-card) !important;
+  background: #ffffff !important;
 }
 .modal-head h3 {
-  margin: 0 !important;
-  font-size: 14.5px !important;
-  font-weight: 700 !important;
-  color: #1e293b !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--text-main) !important;
 }
 .modal-head .modal-close {
   background: transparent !important;
   border: none !important;
-  font-size: 22px !important;
+  font-size: 20px !important;
   cursor: pointer !important;
-  color: #64748b !important;
-  padding: 0 6px !important;
-  line-height: 1 !important;
-  border-radius: 4px !important;
-}
-.modal-head .modal-close:hover {
-  background: #e2e8f0 !important;
-  color: #0f172a !important;
-}
-.modal-body {
-  padding: 16px 18px !important;
-  overflow-y: auto !important;
-  flex: 1 !important;
+  color: var(--text-muted) !important;
 }
 .modal-foot {
-  padding: 12px 18px !important;
-  border-top: 1px solid #e2e8f0 !important;
-  background: #f8fafc !important;
+  padding: 14px 20px !important;
+  border-top: 1px solid var(--border-card) !important;
+  background: #f9fafb !important;
 }
 """
 
@@ -530,46 +881,113 @@ part1_head = "".join(lines[0:1373]) + "\n" + extra_css + "\n    </style>\n"
 part2_body = """  <body>
     <div class="app" id="appRoot">
       <div class="sidebar">
-        <div class="brand" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
-          <div style="display: flex; align-items: center; gap: 10px">
-            <div class="seal">LG</div>
-            <div>
-              <h1>Land Grabbing Prohibition<br />Special Courts, Bengaluru</h1>
-              <p>Case &amp; Cause List Register</p>
+        <!-- Brand Header matching reference screenshot -->
+        <div class="sidebar-brand-box">
+          <div style="display:flex;align-items:center;">
+            <div class="brand-logo-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <div class="brand-title-text">
+              <h1>LG Special Courts</h1>
+              <p>Bengaluru Registry</p>
             </div>
           </div>
           <button class="sidebar-toggle" id="sidebarToggle" title="Minimise menu" aria-label="Minimise menu" aria-expanded="true">&laquo;</button>
         </div>
+
+        <!-- Search Bar matching reference screenshot (Pretraga) -->
+        <div class="sidebar-search-box">
+          <input type="text" id="sidebarSearchInput" placeholder="Pretraga / Search cases..." />
+          <svg class="sidebar-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </div>
+
+        <!-- Navigation Menu -->
         <nav id="nav">
           <button data-view="navigator" class="active">
-            <span class="num">01</span><span class="navlabel"> Case Navigator</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span class="navlabel">Case Navigator</span>
           </button>
           <button data-view="pendingentry">
-            <span class="num">02</span><span class="navlabel"> Pending Cases Entry</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            <span class="navlabel">Pending Cases Entry</span>
           </button>
           <button data-view="legacy">
-            <span class="num">03</span><span class="navlabel"> Legacy Case Entry</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            <span class="navlabel">Legacy Case Entry</span>
           </button>
           <button data-view="export">
-            <span class="num">04</span><span class="navlabel"> Export &amp; Backup</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span class="navlabel">Export &amp; Backup</span>
           </button>
         </nav>
-        <div class="sidebar-foot">
-          Secure shared register — authoritative data is stored on the NAS / SQLite.
+
+        <!-- Sidebar Footer matching screenshot: Administracija & User Profile Card -->
+        <div class="sidebar-foot-box">
+          <div class="sidebar-admin-link" id="sidebarAdminBtn" onclick="switchView('export')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Administracija</span>
+          </div>
+
+          <div class="sidebar-user-card">
+            <div class="user-avatar-wrap">
+              <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=faces" alt="Avatar" class="user-avatar-img">
+              <span class="user-online-dot"></span>
+            </div>
+            <div class="user-info-text">
+              <div class="user-info-name">Olivia Rhye</div>
+              <div class="user-info-sub">olivia@untitledui.com</div>
+            </div>
+          </div>
         </div>
       </div>
 
       <main style="padding:0;">
-        <!-- Top App Header matching case.py -->
+        <!-- Top App Header matching reference screenshot (Clean white + Stepper Bar) -->
         <div class="case-app-header" id="appHeaderBar">
-          <div class="header-top">
-            <h1 class="app-title" id="appTitleLbl">⚖  Pending Cases — Data Entry</h1>
+          <div class="header-left-title">
+            <h1 class="app-title" id="appTitleLbl">Pending Cases Entry</h1>
+            <p class="app-subtitle" id="appSubLbl">Karnataka Land Grabbing Prohibition Special Courts</p>
+          </div>
+          <div class="header-right-controls">
+            <!-- Stepper Progress Bar matching reference screenshot -->
+            <div class="stepper-bar" id="topStepperBar">
+              <div class="stepper-segment active" title="Step 1"></div>
+              <div class="stepper-segment active" title="Step 2"></div>
+              <div class="stepper-segment" title="Step 3"></div>
+              <div class="stepper-segment" title="Step 4"></div>
+            </div>
             <button class="btn-mode-toggle" id="modeToggleBtn">Switch to Disposed Mode</button>
           </div>
-          <p class="app-subtitle" id="appSubLbl">Karnataka Land Grabbing Prohibition Special Courts</p>
         </div>
 
-        <!-- Action / Status Bar matching case.py -->
+        <!-- Action / Status Bar -->
         <div class="case-action-bar">
           <span class="status-text" id="statusDbLbl">Database: SQLite / Local Storage (56 records)</span>
           <div class="actions-group">
@@ -583,15 +1001,15 @@ part2_body = """  <body>
           </div>
         </div>
 
-        <!-- Review Queue Banner matching case.py -->
+        <!-- Review Queue Banner -->
         <div class="queue-bar" id="queueBar" style="display:none;">
           <span class="queue-title" id="queueTitleLbl">📋 OCR Review Queue: Case 1 of 1</span>
           <div class="queue-actions">
             <button class="btn-case-action" id="rqPrevBtn">◀ Prev Case</button>
             <button class="btn-case-action" id="rqNextBtn">Next Case ▶</button>
             <button class="btn-case-primary" id="rqPopulateBtn">Populate Form</button>
-            <button class="btn-case-primary" id="rqSaveNextBtn" style="background:#2e7d32;border-color:#2e7d32;">Save &amp; Next</button>
-            <button class="btn-case-action" id="rqClearBtn" style="color:#b91c1c;">Clear Queue</button>
+            <button class="btn-case-primary" id="rqSaveNextBtn" style="background:#12b76a;border-color:#12b76a;">Save &amp; Next</button>
+            <button class="btn-case-action" id="rqClearBtn" style="color:#d92d20;">Clear Queue</button>
             <button class="btn-case-action" id="rqViewPdfBtn">📄 View PDF</button>
           </div>
         </div>
@@ -605,16 +1023,16 @@ part2_body = """  <body>
         <div class="middle-paned-layout" id="middlePanedLayout">
           <div class="main-view-container" id="viewRoot"></div>
 
-          <!-- Side-by-side PDF Viewer Pane matching case.py -->
+          <!-- Side-by-side PDF Viewer Pane -->
           <div class="pdf-side-pane" id="pdfSidePane" style="display:none;">
             <div class="pdf-top-bar">
               <span class="pdf-title" id="pdfTitleLbl">📄 Original PDF Viewer</span>
               <div class="pdf-controls-box">
                 <button class="pdf-btn-ctrl" id="pdfPrevPageBtn">◀</button>
-                <span id="pdfPageLbl" style="font-size:11px;padding:0 3px;color:#94a3b8;">1/1</span>
+                <span id="pdfPageLbl" style="font-size:11px;padding:0 3px;color:#667085;">1/1</span>
                 <button class="pdf-btn-ctrl" id="pdfNextPageBtn">▶</button>
                 <button class="pdf-btn-ctrl" id="pdfZoomOutBtn">➖</button>
-                <span id="pdfZoomLbl" style="font-size:11px;padding:0 2px;color:#94a3b8;">100%</span>
+                <span id="pdfZoomLbl" style="font-size:11px;padding:0 2px;color:#667085;">100%</span>
                 <button class="pdf-btn-ctrl" id="pdfZoomInBtn">➕</button>
                 <button class="pdf-btn-ctrl" id="pdfFitBtn">Fit</button>
                 <button class="pdf-btn-ctrl" id="pdfRotateBtn">⟳</button>
@@ -886,7 +1304,15 @@ part8_features = """
         const toggleBtn = document.getElementById("modeToggleBtn");
         
         if (titleEl) {
-          titleEl.textContent = isPending ? "⚖  Pending Cases — Data Entry" : "⚖  Disposed Cases — Data Entry";
+          if (state.view === "navigator") {
+            titleEl.textContent = "Case Navigator";
+          } else if (state.view === "legacy") {
+            titleEl.textContent = "Legacy Case Entry";
+          } else if (state.view === "export") {
+            titleEl.textContent = "Export & Backup";
+          } else {
+            titleEl.textContent = isPending ? "Pending Cases Entry" : "Disposed Cases Entry";
+          }
         }
         if (subEl) {
           subEl.textContent = isPending 
@@ -896,6 +1322,14 @@ part8_features = """
         if (toggleBtn) {
           toggleBtn.textContent = isPending ? "Switch to Disposed Mode" : "Switch to Pending Mode";
         }
+
+        // Update Stepper Progress Bar
+        const stepMap = { "navigator": 0, "pendingentry": 1, "legacy": 2, "export": 3 };
+        const currentStep = stepMap[state.view] !== undefined ? stepMap[state.view] : 1;
+        const segments = document.querySelectorAll(".stepper-segment");
+        segments.forEach((seg, i) => {
+          seg.classList.toggle("active", i <= currentStep);
+        });
       }
 
       // 2. OCR REVIEW QUEUE
@@ -1979,6 +2413,17 @@ part8_features = """
           targetCard.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }
+
+      
+      function updateDocBadgeIfPresent(filename, sizeStr) {
+        const nameEl = document.getElementById("dropzoneFileName");
+        const sizeEl = document.getElementById("dropzoneFileSize");
+        const cont = document.getElementById("dropzoneFileBadgeContainer");
+        if (nameEl && filename) nameEl.textContent = filename.split("/").pop();
+        if (sizeEl && sizeStr) sizeEl.textContent = sizeStr;
+        if (cont && filename) cont.style.display = "block";
+      }
+      window.updateDocBadgeIfPresent = updateDocBadgeIfPresent;
 
       function handleManualPdfUpload(inputEl) {
         const file = inputEl.files && inputEl.files[0];
@@ -3123,173 +3568,231 @@ part8_features = """
         const isDisposed = state.mode === "Disposed";
 
         root.innerHTML = `
-          ${eraseAllCasesPanelHtml("peEraseAll")}
           <div class="panel">
-            <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:8px;margin-bottom:12px;">
-              <h3 style="margin:0;font-size:15px;color:var(--header-bg);">${titleText}</h3>
-              <div style="font-size:12px;color:#64748b;">
-                Entry Mode: <strong style="color:${isDisposed ? 'var(--primary-disposed)' : 'var(--primary-pending)'};">${state.mode}</strong>
+            <!-- Header matching screenshot: Osnovne informacije -->
+            <div class="form-main-header">
+              <h2>Osnovne informacije</h2>
+              <div class="form-mode-tag">
+                Entry Mode: <strong style="color:${isDisposed ? '#6941c6' : '#12b76a'};">${state.mode}</strong>
               </div>
             </div>
 
             <!-- Live Duplicate Alert Banner -->
             <div class="dup-status-lbl" id="fDupNotice" style="display:none;"></div>
 
-            <!-- SECTION 1: CASE DETAILS -->
-            <div class="case-section-header">Case Details</div>
-            <div class="grid">
-              <div class="field">
-                <label>Court Hall</label>
-                <select id="fCourtHall">
-                  <option value="I">Court Hall No.1</option>
-                  <option value="II">Court Hall No.2</option>
-                </select>
+            <!-- SECTION 1: OSNOVNE INFORMACIJE (CASE DETAILS) -->
+            <div class="form-row-group">
+              <div class="form-row-label">
+                <h4>Osnovne informacije</h4>
+                <p>Court hall, case number, filing year and registration details.</p>
               </div>
-              <div class="field">
-                <label>Case Type</label>
-                <select id="fCaseType">
-                  ${TYPES.map(t => `<option value="${t.code}">${t.label}</option>`).join("")}
-                </select>
-              </div>
-              <div class="field mono">
-                <label>Case Number (number only)</label>
-                <input type="text" id="fCaseNo" placeholder="e.g. 1650">
-              </div>
-              <div class="field">
-                <label>Year of Filing</label>
-                <input type="number" id="fFilingYear" value="${CURRENT_YEAR}" min="2000" max="${CURRENT_YEAR + 1}">
-              </div>
-              <div class="field span2">
-                <label>CNR Number (optional)</label>
-                <input type="text" id="fCnr" placeholder="KA...">
+              <div class="form-row-fields">
+                <div class="field">
+                  <label>Court Hall</label>
+                  <select id="fCourtHall">
+                    <option value="I">Court Hall No.1</option>
+                    <option value="II">Court Hall No.2</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Case Type</label>
+                  <select id="fCaseType">
+                    ${TYPES.map(t => `<option value="${t.code}">${t.label}</option>`).join("")}
+                  </select>
+                </div>
+                <div class="field mono">
+                  <label>Case Number (number only)</label>
+                  <input type="text" id="fCaseNo" placeholder="e.g. 1650">
+                </div>
+                <div class="field">
+                  <label>Year of Filing</label>
+                  <input type="number" id="fFilingYear" value="${CURRENT_YEAR}" min="2000" max="${CURRENT_YEAR + 1}">
+                </div>
+                <div class="field span2">
+                  <label>CNR Number (optional)</label>
+                  <input type="text" id="fCnr" placeholder="KA...">
+                </div>
               </div>
             </div>
 
             <!-- SECTION 2: PARTIES (APPLICANTS & RESPONDENTS) -->
-            <div class="case-section-header">Parties (Applicants &amp; Respondents)</div>
-            <div class="grid">
-              <div class="field">
-                <label>Applicant Name(s)</label>
-                <textarea id="fApplicantName" rows="2" placeholder="Applicant name(s) in English..."></textarea>
+            <div class="form-row-group">
+              <div class="form-row-label">
+                <h4>Parties Information</h4>
+                <p>Applicant and respondent details in English, separated cleanly without procedural notes.</p>
               </div>
-              <div class="field">
-                <label>Respondent Name(s)</label>
-                <textarea id="fRespondentName" rows="2" placeholder="Respondent name(s) in English (e.g. 1. Name S/o... 2. Name W/o...)..."></textarea>
-              </div>
-              <div class="field">
-                <label>Applicant Address</label>
-                <textarea id="fApplicantAddress" rows="2" placeholder="Applicant address in English (Taluk, District, etc.)..."></textarea>
-              </div>
-              <div class="field">
-                <label>Respondent Address</label>
-                <textarea id="fRespondentAddress" rows="2" placeholder="Respondent address in English (Village, Hobli, Taluk, District, etc.)..."></textarea>
+              <div class="form-row-fields">
+                <div class="field">
+                  <label>Applicant Name(s)</label>
+                  <textarea id="fApplicantName" rows="2" placeholder="Applicant name(s) in English..."></textarea>
+                </div>
+                <div class="field">
+                  <label>Respondent Name(s)</label>
+                  <textarea id="fRespondentName" rows="2" placeholder="Respondent name(s) in English (e.g. 1. Name S/o... 2. Name W/o...)..."></textarea>
+                </div>
+                <div class="field">
+                  <label>Applicant Address</label>
+                  <textarea id="fApplicantAddress" rows="2" placeholder="Applicant address in English (Taluk, District, etc.)..."></textarea>
+                </div>
+                <div class="field">
+                  <label>Respondent Address</label>
+                  <textarea id="fRespondentAddress" rows="2" placeholder="Respondent address in English (Village, Hobli, Taluk, District, etc.)..."></textarea>
+                </div>
               </div>
             </div>
 
             <!-- SECTION 3: CASE STATUS & STAGE -->
-            <div class="case-section-header">${isDisposed ? 'Case Status & Disposal Details' : 'Case Status & Stage'}</div>
-            <div class="grid">
-              <div class="field">
-                <label>Stage Group</label>
-                <select id="fStageGroup">
-                  <option value="">— Select Stage Group —</option>
-                  ${STAGE_GROUPS.map(g => `<option value="${escAttr(g)}">${escHtml(g)}</option>`).join("")}
-                </select>
+            <div class="form-row-group">
+              <div class="form-row-label">
+                <h4>${isDisposed ? 'Case Status &amp; Disposal' : 'Case Status &amp; Stage'}</h4>
+                <p>Procedural stage classification, scheduled hearing date, and land restoration flag.</p>
               </div>
-              <div class="field">
-                <label>Current Stage</label>
-                <select id="fCurrentStage">
-                  <option value="">— Select Stage —</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Restoration of Land</label>
-                <select id="fRestoration">
-                  <option value="">— Select —</option>
-                  ${RESTORATION_CHOICES.map(r => `<option value="${r}" ${(!isDisposed && r === "No") ? "selected" : ""}>${r}</option>`).join("")}
-                </select>
-              </div>
-              ${isDisposed ? `
+              <div class="form-row-fields">
                 <div class="field">
-                  <label>Dispose Date</label>
-                  <input type="date" id="fDisposeDate">
-                </div>
-                <div class="field span2">
-                  <label>Disposal Nature</label>
-                  <select id="fDisposalNature">
-                    <option value="">— Select Nature —</option>
-                    ${DISPOSAL_NATURE_CHOICES.map(n => `<option value="${n}">${n}</option>`).join("")}
+                  <label>Stage Group</label>
+                  <select id="fStageGroup">
+                    <option value="">— Select Stage Group —</option>
+                    ${STAGE_GROUPS.map(g => `<option value="${escAttr(g)}">${escHtml(g)}</option>`).join("")}
                   </select>
                 </div>
-              ` : `
                 <div class="field">
-                  <label>Next Hearing Date</label>
-                  <input type="date" id="fHearingDate">
+                  <label>Current Stage</label>
+                  <select id="fCurrentStage">
+                    <option value="">— Select Stage —</option>
+                  </select>
                 </div>
-              `}
-            </div>
-
-            <!-- SECTION 4: LAND EXTENT -->
-            <div class="case-section-header">Land Extent</div>
-            <div class="grid">
-              <div class="field">
-                <label>Extent Value</label>
-                <input type="text" id="fExtent" placeholder="e.g. 2.10">
-              </div>
-              <div class="field">
-                <label>Unit</label>
-                <select id="fExtentUnit">
-                  ${EXTENT_UNIT_CHOICES.map(u => `<option value="${u}">${u}</option>`).join("")}
-                </select>
-              </div>
-            </div>
-
-            <!-- SECTION 5: PROPERTY IDENTIFIERS -->
-            <div class="case-section-header">Property Identifiers</div>
-            <div class="grid">
-              <div class="field">
-                <label>Survey No. (Sy. No.)</label>
-                <input type="text" id="fSurveyNo" placeholder="e.g. 120/1">
-              </div>
-              <div class="field">
-                <label>Ward No.</label>
-                <input type="text" id="fWardNo" placeholder="Ward No.">
-              </div>
-              <div class="field">
-                <label>PID No.</label>
-                <input type="text" id="fPidNo" placeholder="PID No.">
-              </div>
-              <div class="field">
-                <label>Property Tax Assessment No.</label>
-                <input type="text" id="fTaxNo" placeholder="Assessment No.">
+                <div class="field">
+                  <label>Restoration of Land</label>
+                  <select id="fRestoration">
+                    <option value="">— Select —</option>
+                    ${RESTORATION_CHOICES.map(r => `<option value="${r}" ${(!isDisposed && r === "No") ? "selected" : ""}>${r}</option>`).join("")}
+                  </select>
+                </div>
+                ${isDisposed ? `
+                  <div class="field">
+                    <label>Dispose Date</label>
+                    <input type="date" id="fDisposeDate">
+                  </div>
+                  <div class="field span2">
+                    <label>Disposal Nature</label>
+                    <select id="fDisposalNature">
+                      <option value="">— Select Nature —</option>
+                      ${DISPOSAL_NATURE_CHOICES.map(n => `<option value="${n}">${n}</option>`).join("")}
+                    </select>
+                  </div>
+                ` : `
+                  <div class="field">
+                    <label>Next Hearing Date</label>
+                    <input type="date" id="fHearingDate">
+                  </div>
+                `}
               </div>
             </div>
 
-            <!-- SECTION 6: PROPERTY LOCATION (CASCADING GEO) -->
-            <div class="case-section-header">Property Location (Karnataka GEO)</div>
-            <div class="grid">
-              <div class="field">
-                <label>District</label>
-                <select id="fDistrict">
-                  ${Object.keys(GEO).sort().map(d => `<option value="${d}">${d}</option>`).join("")}
-                </select>
+            <!-- SECTION 4: LAND EXTENT & PROPERTY IDENTIFIERS -->
+            <div class="form-row-group">
+              <div class="form-row-label">
+                <h4>Land Extent &amp; Identifiers</h4>
+                <p>Total land measurement, survey number, ward, and municipal property records.</p>
               </div>
-              <div class="field">
-                <label>Taluk</label>
-                <select id="fTaluk"></select>
-              </div>
-              <div class="field">
-                <label>Hobli</label>
-                <select id="fHobli"></select>
-              </div>
-              <div class="field">
-                <label>Village</label>
-                <select id="fVillage"></select>
+              <div class="form-row-fields">
+                <div class="field">
+                  <label>Extent Value</label>
+                  <input type="text" id="fExtent" placeholder="e.g. 2.10">
+                </div>
+                <div class="field">
+                  <label>Unit</label>
+                  <select id="fExtentUnit">
+                    ${EXTENT_UNIT_CHOICES.map(u => `<option value="${u}">${u}</option>`).join("")}
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Survey No. (Sy. No.)</label>
+                  <input type="text" id="fSurveyNo" placeholder="e.g. 120/1">
+                </div>
+                <div class="field">
+                  <label>Ward No.</label>
+                  <input type="text" id="fWardNo" placeholder="Ward No.">
+                </div>
+                <div class="field">
+                  <label>PID No.</label>
+                  <input type="text" id="fPidNo" placeholder="PID No.">
+                </div>
+                <div class="field">
+                  <label>Property Tax Assessment No.</label>
+                  <input type="text" id="fTaxNo" placeholder="Assessment No.">
+                </div>
               </div>
             </div>
 
-            <!-- Action Buttons matching case.py -->
-            <div style="display:flex;align-items:center;gap:6px;margin-top:16px;flex-wrap:wrap;border-top:1px solid #e2e8f0;padding-top:12px;">
+            <!-- SECTION 5: PROPERTY LOCATION (KARNATAKA GEO) -->
+            <div class="form-row-group">
+              <div class="form-row-label">
+                <h4>Property Location</h4>
+                <p>Revenue hierarchy covering Karnataka District, Taluk, Hobli and Village.</p>
+              </div>
+              <div class="form-row-fields">
+                <div class="field">
+                  <label>District</label>
+                  <select id="fDistrict">
+                    ${Object.keys(GEO).sort().map(d => `<option value="${d}">${d}</option>`).join("")}
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Taluk</label>
+                  <select id="fTaluk"></select>
+                </div>
+                <div class="field">
+                  <label>Hobli</label>
+                  <select id="fHobli"></select>
+                </div>
+                <div class="field">
+                  <label>Village</label>
+                  <select id="fVillage"></select>
+                </div>
+              </div>
+            </div>
+
+            <!-- SECTION 6: DOKUMENTI (DOCUMENTS DROPZONE) matching screenshot -->
+            <div class="form-row-group">
+              <div class="form-row-label">
+                <h4>Dokumenti</h4>
+                <p>Attach or view petition and order sheet documents.</p>
+              </div>
+              <div class="form-row-fields">
+                <div class="field span2">
+                  <div class="upload-dropzone" id="formUploadDropzone">
+                    <div class="upload-dropzone-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                      </svg>
+                    </div>
+                    <div class="upload-dropzone-text">
+                      Drag and drop your files <span class="dropzone-link">here</span> or <span class="dropzone-link">browse</span>
+                    </div>
+                    <div class="upload-dropzone-hint">Supports PDF, JPG, PNG up to 25MB</div>
+                    <input type="file" id="formDropzoneInput" accept="image/*,.pdf" style="display:none;">
+                    <div id="dropzoneFileBadgeContainer" style="display:none;margin-top:14px;">
+                      <div class="dropzone-file-badge">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#12b76a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                          <polyline points="14 2 14 8 20 8"></polyline>
+                        </svg>
+                        <span id="dropzoneFileName" style="font-weight:600;color:#101828;"></span>
+                        <span id="dropzoneFileSize" style="color:#667085;font-size:12px;"></span>
+                        <button type="button" id="dropzoneRemoveFileBtn" class="dropzone-remove-btn" title="Remove file">✕</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form Action Buttons -->
+            <div class="form-actions-bar">
               <button class="btn-case-primary" id="fSaveBtn">+ Save Entry</button>
               <button class="btn-case-action" id="fPrevCaseBtn">◀ Prev Case</button>
               <button class="btn-case-action" id="fNextCaseBtn">Next Case ▶</button>
@@ -3299,8 +3802,8 @@ part8_features = """
               <button class="btn-case-action" id="fScanBtn">🦙 Scan Images</button>
               <button class="btn-case-action" id="fClearBtn">Clear Form</button>
               <button class="btn-case-action" id="fCancelBtn" style="display:none;">Cancel Edit</button>
-              <button class="btn-case-action" id="fDeleteBtn" style="color:#b91c1c;">Delete Selected</button>
-              <span id="fStatusMsg" style="font-size:12px;font-weight:600;margin-left:8px;"></span>
+              <button class="btn-case-action" id="fDeleteBtn" style="color:#d92d20;">Delete Selected</button>
+              <span id="fStatusMsg" style="font-size:13px;font-weight:600;margin-left:8px;"></span>
             </div>
           </div>
 
@@ -3316,6 +3819,55 @@ part8_features = """
             </div>
           ` : ''}
         `;
+
+        // Wire Documents Upload Dropzone
+        const dropzone = document.getElementById("formUploadDropzone");
+        const dropInput = document.getElementById("formDropzoneInput");
+        if (dropzone && dropInput) {
+          dropzone.onclick = (e) => {
+            if (e.target.id === "dropzoneRemoveFileBtn") return;
+            dropInput.click();
+          };
+          dropInput.onchange = (e) => {
+            const f = dropInput.files && dropInput.files[0];
+            if (f) {
+              handleManualPdfUpload(dropInput);
+              const nameEl = document.getElementById("dropzoneFileName");
+              const sizeEl = document.getElementById("dropzoneFileSize");
+              const cont = document.getElementById("dropzoneFileBadgeContainer");
+              if (nameEl) nameEl.textContent = f.name;
+              if (sizeEl) sizeEl.textContent = `${(f.size / (1024 * 1024)).toFixed(1)} MB`;
+              if (cont) cont.style.display = "block";
+            }
+          };
+          dropzone.ondragover = (e) => { e.preventDefault(); dropzone.style.borderColor = "#12b76a"; dropzone.style.background = "#fcfdfd"; };
+          dropzone.ondragleave = () => { dropzone.style.borderColor = "#eaecf0"; dropzone.style.background = "#ffffff"; };
+          dropzone.ondrop = (e) => {
+            e.preventDefault();
+            dropzone.style.borderColor = "#eaecf0";
+            dropzone.style.background = "#ffffff";
+            const f = e.dataTransfer.files && e.dataTransfer.files[0];
+            if (f) {
+              handleManualPdfUpload({ files: [f] });
+              const nameEl = document.getElementById("dropzoneFileName");
+              const sizeEl = document.getElementById("dropzoneFileSize");
+              const cont = document.getElementById("dropzoneFileBadgeContainer");
+              if (nameEl) nameEl.textContent = f.name;
+              if (sizeEl) sizeEl.textContent = `${(f.size / (1024 * 1024)).toFixed(1)} MB`;
+              if (cont) cont.style.display = "block";
+            }
+          };
+        }
+
+        const removeFileBtn = document.getElementById("dropzoneRemoveFileBtn");
+        if (removeFileBtn) {
+          removeFileBtn.onclick = (e) => {
+            e.stopPropagation();
+            const cont = document.getElementById("dropzoneFileBadgeContainer");
+            if (cont) cont.style.display = "none";
+            hidePdfPane();
+          };
+        }
 
         // Wire Cascading GEO
         const distEl = document.getElementById("fDistrict");
@@ -3456,6 +4008,8 @@ part8_features = """
           document.getElementById("fDupNotice").style.display = "none";
           document.getElementById("fCancelBtn").style.display = "none";
           document.getElementById("fStatusMsg").textContent = "";
+          const dzBadge = document.getElementById("dropzoneFileBadgeContainer");
+          if (dzBadge) dzBadge.style.display = "none";
         };
 
         document.getElementById("fCancelBtn").onclick = () => {
@@ -3690,6 +4244,22 @@ part8_features = """
           document.querySelectorAll("#nav button").forEach(btn => {
             btn.onclick = () => switchView(btn.dataset.view);
           });
+
+          // Wire Sidebar Quick Search (Pretraga)
+          const sideSearch = document.getElementById("sidebarSearchInput");
+          if (sideSearch) {
+            sideSearch.oninput = (e) => {
+              const q = e.target.value.trim().toLowerCase();
+              if (state.view !== "navigator") {
+                switchView("navigator");
+              }
+              const navInput = document.getElementById("navSearchInput");
+              if (navInput) {
+                navInput.value = q;
+                navInput.dispatchEvent(new Event("input"));
+              }
+            };
+          }
 
           // Wire Top App Controls
           const modeBtn = document.getElementById("modeToggleBtn");
