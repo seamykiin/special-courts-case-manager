@@ -917,9 +917,9 @@ part2_body = """  <body>
           <button class="sidebar-toggle" id="sidebarToggle" title="Minimise menu" aria-label="Minimise menu" aria-expanded="true">&laquo;</button>
         </div>
 
-        <!-- Search Bar matching reference screenshot (Pretraga) -->
+        <!-- Sidebar Quick Search Bar -->
         <div class="sidebar-search-box">
-          <input type="text" id="sidebarSearchInput" placeholder="Pretraga / Search cases..." />
+          <input type="text" id="sidebarSearchInput" placeholder="Search cases, village, survey no..." />
           <svg class="sidebar-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -965,14 +965,14 @@ part2_body = """  <body>
           </button>
         </nav>
 
-        <!-- Sidebar Footer matching screenshot: Administracija & User Profile Card -->
+        <!-- Sidebar Footer: Administration & Profile Card -->
         <div class="sidebar-foot-box">
           <div class="sidebar-admin-link" id="sidebarAdminBtn" onclick="switchView('export')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3"></circle>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
-            <span>Administracija</span>
+            <span>Administration &amp; Settings</span>
           </div>
 
           <div class="sidebar-user-card">
@@ -981,8 +981,8 @@ part2_body = """  <body>
               <span class="user-online-dot"></span>
             </div>
             <div class="user-info-text">
-              <div class="user-info-name">Olivia Rhye</div>
-              <div class="user-info-sub">olivia@untitledui.com</div>
+              <div class="user-info-name">Court Registrar</div>
+              <div class="user-info-sub">registrar@court.kar.gov.in</div>
             </div>
           </div>
         </div>
@@ -3589,9 +3589,9 @@ part8_features = """
 
         root.innerHTML = `
           <div class="panel">
-            <!-- Header matching screenshot: Osnovne informacije -->
+            <!-- Header: Case Details -->
             <div class="form-main-header">
-              <h2>Osnovne informacije</h2>
+              <h2>Case Details</h2>
               <div class="form-mode-tag">
                 Entry Mode: <strong style="color:${isDisposed ? '#6941c6' : '#12b76a'};">${state.mode}</strong>
               </div>
@@ -3600,10 +3600,10 @@ part8_features = """
             <!-- Live Duplicate Alert Banner -->
             <div class="dup-status-lbl" id="fDupNotice" style="display:none;"></div>
 
-            <!-- SECTION 1: OSNOVNE INFORMACIJE (CASE DETAILS) -->
+            <!-- SECTION 1: CASE REGISTRATION & DETAILS -->
             <div class="form-row-group">
               <div class="form-row-label">
-                <h4>Osnovne informacije</h4>
+                <h4>Case Registration &amp; Details</h4>
                 <p>Court hall, case number, filing year and registration details.</p>
               </div>
               <div class="form-row-fields">
@@ -3773,10 +3773,10 @@ part8_features = """
               </div>
             </div>
 
-            <!-- SECTION 6: DOKUMENTI (DOCUMENTS DROPZONE) matching screenshot -->
+            <!-- SECTION 6: DOCUMENTS & ORDER SHEETS DROPZONE -->
             <div class="form-row-group">
               <div class="form-row-label">
-                <h4>Dokumenti</h4>
+                <h4>Documents &amp; Order Sheets</h4>
                 <p>Attach or view petition and order sheet documents.</p>
               </div>
               <div class="form-row-fields">
@@ -4279,7 +4279,7 @@ part8_features = """
             btn.onclick = () => switchView(btn.dataset.view);
           });
 
-          // Wire Sidebar Quick Search (Pretraga)
+          // Wire Sidebar Quick Search
           const sideSearch = document.getElementById("sidebarSearchInput");
           if (sideSearch) {
             sideSearch.oninput = (e) => {
