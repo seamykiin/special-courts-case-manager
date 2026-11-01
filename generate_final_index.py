@@ -502,21 +502,43 @@ body {
 
 /* PDF Side Pane */
 .pdf-side-pane {
-  flex: 1 1 calc(48% - 10px) !important;
-  max-width: calc(48% - 10px) !important;
-  min-width: 320px !important;
-  box-sizing: border-box !important;
-  position: sticky !important;
-  top: 16px !important;
-  height: calc(100vh - 120px) !important;
-  background: #ffffff !important;
-  border: 1px solid var(--border-card) !important;
-  border-radius: 12px !important;
+  display: none !important;
+  flex: 1 1 calc(48% - 10px);
+  max-width: calc(48% - 10px);
+  min-width: 320px;
+  box-sizing: border-box;
+  position: sticky;
+  top: 16px;
+  height: calc(100vh - 120px);
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(16, 24, 40, 0.08);
+  z-index: 10;
+}
+
+/* Only display PDF side pane when split-active is active */
+.middle-paned-layout.split-active .pdf-side-pane {
   display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  box-shadow: 0 4px 18px rgba(16, 24, 40, 0.08) !important;
-  z-index: 10 !important;
+}
+
+.pdf-side-pane.hidden-pane {
+  display: none !important;
+}
+
+.main-view-container {
+  flex: 1 1 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  transition: flex 0.2s ease, max-width 0.2s ease !important;
+}
+.middle-paned-layout.split-active .main-view-container {
+  flex: 1 1 calc(52% - 10px) !important;
+  max-width: calc(52% - 10px) !important;
+  overflow-x: hidden !important;
 }
 .pdf-top-bar {
   background: #ffffff !important;
@@ -2160,20 +2182,29 @@ part8_features = """
       function showPdfPane() {
         const pane = document.getElementById("pdfSidePane");
         const layout = document.getElementById("middlePanedLayout");
-        if (pane) pane.style.display = "flex";
         if (layout) layout.classList.add("split-active");
+        if (pane) {
+          pane.classList.remove("hidden-pane");
+          pane.style.setProperty("display", "flex", "important");
+        }
       }
 
       function hidePdfPane() {
         const pane = document.getElementById("pdfSidePane");
         const layout = document.getElementById("middlePanedLayout");
-        if (pane) pane.style.display = "none";
         if (layout) layout.classList.remove("split-active");
+        if (pane) {
+          pane.classList.add("hidden-pane");
+          pane.style.setProperty("display", "none", "important");
+        }
       }
 
       function togglePdfSideBySide() {
+        const layout = document.getElementById("middlePanedLayout");
         const pane = document.getElementById("pdfSidePane");
-        if (pane && pane.style.display !== "none") {
+        const isShown = (layout && layout.classList.contains("split-active")) || 
+                        (pane && !pane.classList.contains("hidden-pane") && pane.style.display !== "none");
+        if (isShown) {
           hidePdfPane();
         } else {
           showPdfPane();
@@ -4334,7 +4365,9 @@ part8_features = """
       window.zoomInPdf = () => { if (typeof pdfCurrentZoom !== "undefined") { pdfCurrentZoom = Math.min(200, pdfCurrentZoom + 15); applyPdfTransform(); } };
       window.zoomOutPdf = () => { if (typeof pdfCurrentZoom !== "undefined") { pdfCurrentZoom = Math.max(40, pdfCurrentZoom - 15); applyPdfTransform(); } };
       window.rotatePdf = () => { if (typeof pdfCurrentRotation !== "undefined") { pdfCurrentRotation = (pdfCurrentRotation + 90) % 360; applyPdfTransform(); } };
+      window.showPdfPane = showPdfPane;
       window.hidePdfPane = hidePdfPane;
+      window.togglePdfSideBySide = togglePdfSideBySide;
       window.resetPdfZoomAndPan = resetPdfZoomAndPan;
       window.saveCurrentFormEntry = () => { document.getElementById("fSaveBtn")?.click(); };
       window.clearCurrentForm = () => { document.getElementById("fClearBtn")?.click(); };
