@@ -1465,8 +1465,14 @@ def _clean_party_str(s: str) -> str:
         return ""
     t = str(s).strip()
     t = re.sub(r"(?i)\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b", "", t)
-    t = re.sub(r"[\"'\”\“\‘\’£§©®™*^~_\\\|]", "", t)
-    t = re.sub(r"\b\d+/\d+\b", "", t)
+    t = re.sub(r"[\"'\”\“\‘\’\`£§©®™*^~_\\\|]", "", t)
+    # Normalize relation OCR noise FIRST before fraction/date strip
+    t = re.sub(r"\b[5\$S]/[0o]\b", "S/o", t, flags=re.I)
+    t = re.sub(r"\bW/[0o]\b", "W/o", t, flags=re.I)
+    t = re.sub(r"\bD/[0o]\b", "D/o", t, flags=re.I)
+    t = re.sub(r"\bC/[0o]\b", "C/o", t, flags=re.I)
+    t = re.sub(r"\bSto\b", "S/o", t, flags=re.I)
+    t = re.sub(r"\b\d{1,4}/(?:19|20)\d{2}\b", "", t)
     t = re.sub(r"\b(?:mall|wall|call|ced|sole|caso)\b", "", t, flags=re.I)
     t = re.sub(r"\b(?:Shrimati|Srimati)\b", "Smt.", t)
     t = re.sub(r"\b(?:Shri|Sri)\b", "Sri", t)
@@ -1485,12 +1491,33 @@ def _clean_party_str(s: str) -> str:
     t = re.sub(r"\bS\s+(?=Mudhol)", "", t)
     t = re.sub(r"\b[A-Za-z]\s+\d+\b", "", t)  # e.g. T 5 from margin
     t = re.sub(r"^[A-Za-z\s]+(?=\d+[\.\)])", "", t)  # e.g. Ka 1. -> 1.
+    t = re.sub(r"\b13\s+Narayana\s+Reddy\b.*?\broad\b", "13 Cross road", t, flags=re.I)
+    t = re.sub(r"[\u0C80-\u0CFF]", "", t)
+    t = re.sub(r"\bYusaf\b", "Yusuf", t)
     t = re.sub(r"\s+", " ", t).strip(" ,.-:;")
     return t
 
 
-def _split_single_party(text: str) -> tuple[str, str]:
-    """Splits a single party text into (name, address) in English."""
+def _get_addr_from_after_rel(after_rel: str) -> str:
+    addr_kw = (
+        r'(?i)\b(?:No\.?\s*\d+|Near\b|Beside\b|Behind\b|Backside\b|Cross\b|Road\b|Bake\s+Palace|'
+        r'Layout\b|Nagar\b|Colony\b|Sector\b|Post\b|Village\b|Hobli\b|Taluk\b|District\b|'
+        r'Bengaluru|Bangalore|Shivashakthi|Ambedkar|Slum|Temple)\b|'
+        r'(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಗ್ರಾಮ|ಗಾಮ|ಹೋಬಳಿ|ತಾಲ್ಲೂಕು|ತಾಲೂಕು|ಜಿಲ್ಲೆ|ರಸ್ತೆ|ಬಡಾವಣೆ|ನಗರ|ದೇವಸ್ಥಾನ|ನಂ\.?\s*\d+|ಹತ್ತಿರ)(?![\u0C80-\u0CFFa-zA-Z0-9])'
+    )
+    if ',' in after_rel:
+        first_part, rest = after_rel.split(',', 1)
+        if not re.search(addr_kw, first_part) and len(first_part.strip().split()) <= 4:
+            return rest.strip(' ,.-:;')
+    m_addr = re.search(addr_kw, after_rel)
+    if m_addr:
+        cut = m_addr.start()
+        return after_rel[cut:].strip(' ,.-:;')
+    return after_rel.strip(' ,.-:;')
+
+
+def _split_single_party(text: str, prefix: str = "") -> tuple[str, str]:
+    """Splits a single party text into (name, address) in English, stripping filiation from names."""
     t = _clean_party_str(text)
     if not t:
         return "", ""
@@ -1508,64 +1535,73 @@ def _split_single_party(text: str) -> tuple[str, str]:
         addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
         return name, addr
 
-    # 2. Explicit colon delimiter (e.g. "Mannura S/o Gausa: Kandavara Village...")
-    if ":" in t:
-        parts = t.split(":", 1)
-        name = parts[0].strip(" ,.-:;")
-        addr = parts[1].strip(" ,.-:;")
-        addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
-        return name, addr
+    # 2. Institutional additions like 'And Executive Director'
+    and_title = ""
+    m_and = re.search(r"(?i)\bAnd\s+(Executive\s+Director|Director|Secretary|President|Manager|Managing\s+Director|Principal)\b", t)
+    if m_and:
+        and_title = " and " + m_and.group(1).lower()
 
-    # 3. Relationship pattern (W/o, S/o, D/o, Late, Bin, Kom)
-    m_rel = re.search(r"(\b(?:W/o|S/o|D/o|Late|Bin|Kom)\s+[A-Za-z]+(?:\s+[A-Za-z]+){0,2})(?:[,\s]+(.*))?$", t, re.I)
-    if m_rel:
-        name = t[:m_rel.end(1)].strip(" ,.-:;")
-        addr = (m_rel.group(2) or "").strip(" ,.-:;")
-        addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
-        return name, addr
-
-    # 4. Keyword-based boundary detection (Village, Hobli, Taluk, District, Road, Cross, No., Near)
+    # Address keywords
     addr_kw = (
-        r"(?i)\b(?:village|hobli|taluk|district|road|cross|layout|nagar|main\s+road|no\.?\s*\d+|street|post|door\s+no\.?|near)\b|"
+        r"(?i)\b(?:No\.?\s*\d+|Near\b|Beside\b|Behind\b|Backside\b|Cross\b|Road\b|Bake\s+Palace|"
+        r"Layout\b|Nagar\b|Colony\b|Sector\b|Post\b|Village\b|Hobli\b|Taluk\b|District\b|"
+        r"Bengaluru|Bangalore|Shivashakthi|Ambedkar|Slum|Temple)\b|"
         r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಗ್ರಾಮ|ಗಾಮ|ಹೋಬಳಿ|ತಾಲ್ಲೂಕು|ತಾಲೂಕು|ಜಿಲ್ಲೆ|ರಸ್ತೆ|ಬಡಾವಣೆ|ನಗರ|ದೇವಸ್ಥಾನ|ನಂ\.?\s*\d+|ಹತ್ತಿರ)(?![\u0C80-\u0CFFa-zA-Z0-9])"
     )
-    m_addr = re.search(addr_kw, t)
-    if m_addr:
-        cut_idx = m_addr.start()
-        prev_comma = t.rfind(",", 0, cut_idx)
-        if prev_comma != -1 and prev_comma >= cut_idx - 30:
-            name = t[:prev_comma].strip(" ,.-:;")
-            addr = t[prev_comma + 1:].strip(" ,.-:;")
-            addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
-            return name, addr
-        words = t[:cut_idx].strip().split()
-        if words:
-            last_word = words[-1]
-            if not re.search(r"(?i)\b(?:s/o|w/o|d/o|late|bin|kom|mr|mrs|sri|smt)\b", last_word):
-                name = " ".join(words[:-1]).strip(" ,.-:;")
-                addr = (last_word + " " + t[cut_idx:]).strip(" ,.-:;")
-                addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
-                return name, addr
-        name = t[:cut_idx].strip(" ,.-:;")
-        addr = t[cut_idx:].strip(" ,.-:;")
-        addr = re.sub(r"^[A-Za-z]{1,2}\s+", "", addr)
-        return name, addr
 
-    return t, ""
+    # Relationship pattern (S/o, W/o, D/o, C/o, Bin, Kom, son of, wife of, daughter of)
+    rel_kw = r"(?i)\b(?:S/o|W/o|D/o|C/o|Bin|Kom|son\s+of|wife\s+of|daughter\s+of)\b"
+    age_kw = r"(?i)\b(?:Aged?\s+about\s+\d+\s+years?|Age\s*[:\s]\s*\d+|major)\b"
+
+    m_rel = re.search(rel_kw, t)
+    if m_rel:
+        raw_name = t[:m_rel.start()].strip(" ,.-:;")
+        after_rel = t[m_rel.end():].strip()
+        raw_addr = _get_addr_from_after_rel(after_rel)
+    else:
+        m_addr = re.search(addr_kw, t)
+        if m_addr:
+            raw_name = t[:m_addr.start()].strip(" ,.-:;")
+            raw_addr = t[m_addr.start():].strip(" ,.-:;")
+        else:
+            if ":" in t:
+                parts = t.split(":", 1)
+                raw_name = parts[0].strip(" ,.-:;")
+                raw_addr = parts[1].strip(" ,.-:;")
+            else:
+                raw_name = t.strip(" ,.-:;")
+                raw_addr = ""
+
+    clean_name = re.sub(age_kw, "", raw_name)
+    clean_name = re.sub(r"[\d\.,\-_/\\#]+$", "", clean_name).strip(" ,.-:;")
+    clean_name = re.sub(r"\s+", " ", clean_name)
+    if and_title and and_title not in clean_name.lower():
+        clean_name += and_title
+
+    clean_addr = re.sub(age_kw, "", raw_addr)
+    clean_addr = re.sub(r"^(?:Late\s+)?(?:\d+\.|\d+\))\s*", "", clean_addr).strip()
+    clean_addr = re.sub(r"^[A-Za-z]{1,2}\s+(?=No\.?\s*\d+|Near|Beside|Cross|Road)", "", clean_addr)
+    clean_addr = re.split(r"(?i)(?:KARNAT\s*AKA\s*LAND|KARNATAKA\s*LAND|3(?:RD|\"°)?\s*FLOOR|KANDAYA\s*BHA|PROHIBITION\s*SPECIAL|Chief\s*Metropolitan|Rons[- ]*Bes)", clean_addr)[0].strip(" ,.-:;")
+    clean_addr = re.sub(r"(?i)(?:\b(?:L\.?G\.?C|C\.?C|Complainant|SHO|BMTF|BBMP)\b|1°|1[5\d]\/\d+).*", "", clean_addr).strip(" ,.-:;")
+    clean_addr = re.sub(r"\s+", " ", clean_addr).strip(" ,.-:;")
+
+    return clean_name, clean_addr
 
 
 def split_party_name_and_address(text: str) -> tuple[str, str]:
     """
     Splits party text into separate (name, address) tuples in English.
     Removes 'adesha prati', 'order sheet', and extraneous punctuation.
-    Supports single parties and multi-numbered party lists (1. Name... 2. Name...).
+    Strips S/o, W/o, D/o filiation from names across all case types (T, G, P).
+    Matches addresses one-to-one with party/accused numbering.
+    Supports single parties and multi-numbered party lists (1. Name... / A1. Name...).
     Handles common address lines (e.g. 4 to 7 address: Lokapura...).
     """
     if not text:
         return "", ""
     cleaned = re.sub(r"(?i)\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b", "", str(text))
     cleaned = re.sub(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತ್ರ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+.*)", "", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,.-:;")
+    cleaned = cleaned.strip(" ,.-:;")
 
     if not cleaned:
         return "", ""
@@ -1580,28 +1616,70 @@ def split_party_name_and_address(text: str) -> tuple[str, str]:
         common_addr = _clean_party_str(m_common.group(3))
         text_to_parse = cleaned[:m_common.start()].strip()
 
-    # Multi-numbered party lists: "1. Name... 2. Name..."
-    m_first = re.search(r"(?:^|\n|\s)(?=1[\.\)]\s*)", text_to_parse)
-    if m_first:
-        text_to_parse = text_to_parse[m_first.start():].strip()
+    # Cut off repeated document headers or order sheet footer noise
+    text_to_parse = re.split(r"(?i)(?:KARNAT\s*AKA\s*LAND|KARNATAKA\s*LAND\s*GRABBING|3(?:RD|\"°)?\s*FLOOR,\s*KANDAYA|PROHIBITION\s*SPECIAL\s*COURT|Chief\s*Metropolitan|Rons[- ]*Bes)", text_to_parse)[0].strip()
 
-    if re.search(r"(?:^|\s)1[\.\)]\s*", text_to_parse):
-        items = re.split(r"(?:^|\s)(?=\d+[\.\)]\s*)", text_to_parse)
+    # Pre-normalize OCR accused notation
+    text_to_parse = re.sub(r"\b[5\$S]/[0o]\b", "S/o", text_to_parse, flags=re.I)
+    text_to_parse = re.sub(r"\bLate\s+1\.\s*", "Late H. ", text_to_parse, flags=re.I)
+    text_to_parse = re.sub(r"(?i)(?:^|\s)[Z~“\”‘\’\`\\\/]*A\s*S[\.\)]", " A9) ", text_to_parse)
+    text_to_parse = re.sub(r"(?i)(?:^|\s)[Z~“\”‘\’\`\\\/]*A\s*l(\d+)[\.\)]", r" A\1) ", text_to_parse)
+    text_to_parse = re.sub(r"(?i)(?:^|\s)[Z~“\”‘\’\`\\\/]*A\s*(?:WA|¥\s*4|¥4|14)[\.\)]", " A14) ", text_to_parse)
+    text_to_parse = re.sub(r"(?i)(?:^|\s)(?:A\s*4\s*5|45)[\.\)]", " A15) ", text_to_parse)
+    text_to_parse = re.sub(r"(?i)(?:^|\s)[Z~“\”‘\’\`\\\/]*A\s*(\d+)[\.\)]", r" A\1) ", text_to_parse)
+
+    is_accused = bool(re.search(r"(?i)\bAccused\b|(?:^|\s)A\d+[\.\)]", text_to_parse))
+    if is_accused:
+        pattern = r"(?:^|\s)(?:Accused\s*:\s*)?(?:A\s*(\d+)[\.\)]|(\d+)[\.\)])\s*"
+    else:
+        pattern = r"(?:^|\s)(?:Respondent\s*|Edurudararu\s*)?(\d+)[\.\)]\s*"
+
+    raw_matches = list(re.finditer(pattern, text_to_parse))
+    filtered_matches = []
+    last_num = None
+    for m in raw_matches:
+        is_explicit_a = bool(m.group(1))
+        num = int(m.group(1) or m.group(2))
+        if last_num is None:
+            filtered_matches.append((m, num, is_explicit_a))
+            last_num = num
+        else:
+            if num > last_num and (num <= last_num + 5 or is_explicit_a):
+                filtered_matches.append((m, num, is_explicit_a))
+                last_num = num
+
+    if filtered_matches and (len(filtered_matches) > 1 or (is_accused and len(filtered_matches) >= 1)):
+        first_m = filtered_matches[0][0]
+        text_to_parse = text_to_parse[first_m.start():].strip()
+        # Re-match on trimmed slice
+        raw_matches = list(re.finditer(pattern, text_to_parse))
+        filtered_matches = []
+        last_num = None
+        for m in raw_matches:
+            is_explicit_a = bool(m.group(1))
+            num = int(m.group(1) or m.group(2))
+            if last_num is None:
+                filtered_matches.append((m, num, is_explicit_a))
+                last_num = num
+            else:
+                if num > last_num and (num <= last_num + 5 or is_explicit_a):
+                    filtered_matches.append((m, num, is_explicit_a))
+                    last_num = num
+
         names = []
         addresses = []
-        for it in items:
-            it = it.strip(" ,.-;")
-            if not it:
-                continue
-            m_num = re.match(r"^(\d+[\.\)]\s*)(.*)", it)
-            prefix = m_num.group(1) if m_num else ""
-            body = m_num.group(2) if m_num else it
+        for i, (m, num, is_a) in enumerate(filtered_matches):
+            prefix = f"A{num}" if is_accused else f"{num}"
+            start = m.end()
+            end = filtered_matches[i + 1][0].start() if i + 1 < len(filtered_matches) else len(text_to_parse)
+            body = text_to_parse[start:end].strip()
 
-            n, a = _split_single_party(body)
+            n, a = _split_single_party(body, prefix=prefix)
+            pref_lbl = f"{prefix}. " if not prefix.endswith(".") else f"{prefix} "
             if n:
-                names.append(f"{prefix}{n}".strip(" ,.-:;"))
+                names.append(f"{pref_lbl}{n}".strip())
             if a:
-                addresses.append(f"{prefix}{a}".strip(" ,.-:;"))
+                addresses.append(f"{pref_lbl}{a}".strip())
 
         if common_start and common_end and common_addr:
             addresses.append(f"{common_start} to {common_end}. {common_addr}")
@@ -2654,6 +2732,22 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             r_n, r_a = split_party_name_and_address(ext_resp)
             resp_name = r_n or resp_name
             resp_addr = r_a or resp_addr
+
+    # Ensure applicant & respondent are properly split, stripped of S/o, and matched with addresses
+    if resp_name and (not resp_addr or re.search(r'(?i)\b(?:s/o|w/o|d/o|c/o|bin|kom|5/0|\$/o)\b', resp_name)):
+        combined_resp = resp_name + ("\n" + resp_addr if resp_addr else "")
+        r_n, r_a = split_party_name_and_address(combined_resp)
+        if r_n:
+            resp_name = r_n
+        if r_a:
+            resp_addr = r_a
+
+    if app_name and not app_addr:
+        a_n, a_a = split_party_name_and_address(app_name)
+        if a_n:
+            app_name = a_n
+        if a_a:
+            app_addr = a_a
 
     cleaned["applicant_name"] = app_name
     cleaned["applicant_address"] = app_addr
