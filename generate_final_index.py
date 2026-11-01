@@ -116,6 +116,7 @@ body {
   color: #ffffff;
   flex-shrink: 0;
   box-shadow: 0 2px 4px rgba(18, 183, 106, 0.2);
+  cursor: pointer;
 }
 .brand-title-text {
   margin-left: 10px;
@@ -214,21 +215,44 @@ body {
   text-align: left !important;
   transition: background 0.12s, color 0.12s !important;
   box-sizing: border-box !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 #nav button:hover {
   background: #f9fafb !important;
   color: var(--text-main) !important;
+  box-shadow: none !important;
 }
 #nav button.active {
   background: #f2f4f7 !important;
   color: var(--text-main) !important;
   font-weight: 600 !important;
+  box-shadow: none !important;
 }
 #nav button svg {
   flex-shrink: 0 !important;
   stroke: currentColor;
 }
 
+/* Collapsed Sidebar */
+.sidebar-collapsed .sidebar {
+  padding: 16px 8px !important;
+  align-items: center !important;
+}
+.sidebar-collapsed .sidebar-brand-box {
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  margin-bottom: 20px !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+.sidebar-collapsed .sidebar-brand-box > div:first-child {
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
 .sidebar-collapsed .brand-title-text,
 .sidebar-collapsed .sidebar-search-box,
 .sidebar-collapsed .navlabel,
@@ -236,11 +260,41 @@ body {
   display: none !important;
 }
 .sidebar-collapsed .brand-logo-icon {
-  margin: 0 auto;
+  margin: 0 auto !important;
+}
+.sidebar-collapsed .sidebar-toggle {
+  margin: 0 auto !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 6px !important;
+  background: #f2f4f7 !important;
+  color: var(--text-sec) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: none !important;
+}
+.sidebar-collapsed .sidebar-toggle:hover {
+  background: #eaecf0 !important;
+  color: var(--text-main) !important;
+}
+.sidebar-collapsed #nav {
+  align-items: center !important;
+  width: 100% !important;
 }
 .sidebar-collapsed #nav button {
   justify-content: center !important;
-  padding: 10px 0 !important;
+  width: 44px !important;
+  height: 44px !important;
+  padding: 0 !important;
+  margin: 0 auto 4px auto !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+.sidebar-collapsed #nav button.active {
+  background: #f2f4f7 !important;
+  color: var(--text-main) !important;
+  box-shadow: none !important;
 }
 
 .sidebar-foot-box {
@@ -991,7 +1045,7 @@ button * {
 }
 """
 
-part1_head = "".join(lines[0:1373]) + "\n" + extra_css + "\n    </style>\n"
+part1_head = "".join(lines[0:1373]).replace("box-shadow: inset 3px 0 0 var(--brass-soft);", "box-shadow: none;") + "\n" + extra_css + "\n    </style>\n"
 
 # Part 2: Body, Sidebar, Nav, Topbar
 part2_body = """  <body>
@@ -1024,7 +1078,7 @@ part2_body = """  <body>
 
         <!-- Navigation Menu -->
         <nav id="nav">
-          <button data-view="navigator" onclick="switchView('navigator')" class="active">
+          <button data-view="navigator" onclick="switchView('navigator')" class="active" title="Case Navigator">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="7" height="7"></rect>
               <rect x="14" y="3" width="7" height="7"></rect>
@@ -1033,7 +1087,7 @@ part2_body = """  <body>
             </svg>
             <span class="navlabel">Case Navigator</span>
           </button>
-          <button data-view="pendingentry" onclick="switchView('pendingentry')">
+          <button data-view="pendingentry" onclick="switchView('pendingentry')" title="Pending Cases Entry">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
@@ -1043,7 +1097,7 @@ part2_body = """  <body>
             </svg>
             <span class="navlabel">Pending Cases Entry</span>
           </button>
-          <button data-view="legacy" onclick="switchView('legacy')">
+          <button data-view="legacy" onclick="switchView('legacy')" title="Legacy Case Entry">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
               <polyline points="2 17 12 22 22 17"></polyline>
@@ -1051,7 +1105,7 @@ part2_body = """  <body>
             </svg>
             <span class="navlabel">Legacy Case Entry</span>
           </button>
-          <button data-view="export" onclick="switchView('export')">
+          <button data-view="export" onclick="switchView('export')" title="Export & Backup">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
@@ -1346,6 +1400,12 @@ safe_nav_block = """      function switchView(view) {
         btn.title = collapsed ? "Maximise menu" : "Minimise menu";
         btn.setAttribute("aria-label", btn.title);
         btn.setAttribute("aria-expanded", String(!collapsed));
+      });
+      document.querySelector(".brand-logo-icon")?.addEventListener("click", () => {
+        const app = document.getElementById("appRoot");
+        if (app && app.classList.contains("sidebar-collapsed")) {
+          document.getElementById("sidebarToggle")?.click();
+        }
       });
       document.getElementById("nav")?.addEventListener("click", (e) => {
         const btn = e.target.closest("button[data-view]");
