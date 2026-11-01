@@ -457,13 +457,16 @@ body {
 
 /* OCR Review Queue */
 .queue-bar {
+  display: none !important;
   background: #fffaeb !important;
   border-bottom: 1px solid #fedf89 !important;
   padding: 10px 28px !important;
-  display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 12px !important;
+}
+.queue-bar.active {
+  display: flex !important;
 }
 .queue-bar .queue-title {
   color: #b54708 !important;
@@ -1445,7 +1448,115 @@ part8_features = """
         });
       }
 
-      // 2. OCR REVIEW QUEUE
+      // 2. CORE CASE FORM EXTRACTOR & RECORD PERSISTENCE
+      function getCaseObjectFromForm(isLegacy = false) {
+        const cnoEl = document.getElementById("fCaseNo");
+        const rawNo = extractCaseNumberOnly(cnoEl ? cnoEl.value.trim() : "");
+        if (!rawNo) return null;
+
+        const hall = document.getElementById("fCourtHall")?.value || "I";
+        const type = document.getElementById("fCaseType")?.value || "G";
+        const year = parseInt(document.getElementById("fFilingYear")?.value, 10) || CURRENT_YEAR;
+        const fullCaseNo = `L.G.C.(${type}).No.${rawNo}/${year}`;
+        const isDisp = state.mode === "Disposed";
+        const hDate = isDisp ? "" : (document.getElementById("fHearingDate")?.value || "");
+        const dDate = isDisp ? (document.getElementById("fDisposeDate")?.value || "") : "";
+        const dNat = isDisp ? (document.getElementById("fDisposalNature")?.value || "Disposed") : "";
+
+        const appN = document.getElementById("fApplicantName")?.value.trim() || "";
+        const appA = document.getElementById("fApplicantAddress")?.value.trim() || "";
+        const respN = document.getElementById("fRespondentName")?.value.trim() || "";
+        const respA = document.getElementById("fRespondentAddress")?.value.trim() || "";
+
+        return {
+          id: activeEditCaseId || ("c_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7)),
+          hall: hall,
+          court: "Court Hall No." + (hall === "II" ? "2" : "1"),
+          type: type,
+          case_type: `LGC(${type})`,
+          caseNo: rawNo,
+          existing_case_no: rawNo,
+          fullCaseNo: fullCaseNo,
+          cnr: document.getElementById("fCnr")?.value.trim() || "",
+          applicant_name: appN,
+          applicant_address: appA,
+          respondent_name: respN,
+          respondent_address: respA,
+          applicants: (appN + (appA ? String.fromCharCode(10) + appA : "")).trim(),
+          respondents: (respN + (respA ? String.fromCharCode(10) + respA : "")).trim(),
+          filedYear: year,
+          filing_year: year,
+          stageGroup: document.getElementById("fStageGroup")?.value || (STAGE_TO_GROUP[document.getElementById("fCurrentStage")?.value] || ""),
+          stage_group: document.getElementById("fStageGroup")?.value || (STAGE_TO_GROUP[document.getElementById("fCurrentStage")?.value] || ""),
+          currentStage: document.getElementById("fCurrentStage")?.value || "",
+          stage: document.getElementById("fCurrentStage")?.value || "",
+          sub_stage: document.getElementById("fCurrentStage")?.value || "",
+          restoration: document.getElementById("fRestoration")?.value || (isDisp ? "N/A" : "No"),
+          restorationOfLand: document.getElementById("fRestoration")?.value || (isDisp ? "N/A" : "No"),
+          nextHearing: hDate,
+          hearing_date: hDate,
+          disposedDate: dDate,
+          dispose_date: dDate,
+          disposalNature: dNat,
+          disposal_nature: dNat,
+          status: isDisp ? "Disposed" : "Pending",
+          caseMode: state.mode,
+          landExtent: document.getElementById("fExtent")?.value.trim() || "",
+          extent: document.getElementById("fExtent")?.value.trim() || "",
+          extentUnit: document.getElementById("fExtentUnit")?.value || "Acre + Guntas",
+          unit: document.getElementById("fExtentUnit")?.value || "Acre + Guntas",
+          surveyNo: document.getElementById("fSurveyNo")?.value.trim() || "",
+          survey_no: document.getElementById("fSurveyNo")?.value.trim() || "",
+          wardNo: document.getElementById("fWardNo")?.value.trim() || "",
+          ward_no: document.getElementById("fWardNo")?.value.trim() || "",
+          pidNo: document.getElementById("fPidNo")?.value.trim() || "",
+          pid_no: document.getElementById("fPidNo")?.value.trim() || "",
+          propertyTaxAssessmentNo: document.getElementById("fTaxNo")?.value.trim() || "",
+          tax_no: document.getElementById("fTaxNo")?.value.trim() || "",
+          district: document.getElementById("fDistrict")?.value || "Bengaluru",
+          taluk: document.getElementById("fTaluk")?.value || "",
+          hobli: document.getElementById("fHobli")?.value || "",
+          village: document.getElementById("fVillage")?.value || "",
+          entryDate: new Date().toISOString().slice(0, 10),
+          entry_date: new Date().toISOString().slice(0, 10),
+          updatedAt: new Date().toISOString(),
+          createdAt: activeEditCaseId ? undefined : new Date().toISOString(),
+          source: isLegacy ? "legacy-entry" : "pending-entry"
+        };
+      }
+
+      async function saveCaseRecord(rec) {
+        if (!rec) return null;
+        if (!Array.isArray(state.cases)) state.cases = [];
+
+        let targetIdx = -1;
+        if (rec.id) {
+          targetIdx = state.cases.findIndex(c => c.id === rec.id);
+        }
+        if (targetIdx === -1 && rec.caseNo) {
+          targetIdx = state.cases.findIndex(c => {
+            const sameNo = extractCaseNumberOnly(c.caseNo || c.existing_case_no) === extractCaseNumberOnly(rec.caseNo);
+            const sameType = (c.type || c.case_type || "") === (rec.type || rec.case_type || "");
+            const sameYr = String(c.filedYear || c.filing_year) === String(rec.filedYear || rec.filing_year);
+            return sameNo && sameType && sameYr;
+          });
+        }
+
+        if (targetIdx >= 0) {
+          state.cases[targetIdx] = Object.assign({}, state.cases[targetIdx], rec, {
+            id: state.cases[targetIdx].id,
+            updatedAt: new Date().toISOString()
+          });
+        } else {
+          state.cases.push(rec);
+        }
+
+        await saveCases();
+        updateTopBarStats();
+        return rec;
+      }
+
+      // OCR REVIEW QUEUE
       let ocrReviewQueue = [];
       let ocrQueueIndex = 0;
 
@@ -1453,15 +1564,22 @@ part8_features = """
         const bar = document.getElementById("queueBar");
         if (!bar) return;
         if (!ocrReviewQueue || ocrReviewQueue.length === 0) {
-          bar.style.display = "none";
+          bar.classList.remove("active");
+          bar.style.setProperty("display", "none", "important");
           return;
         }
         if (ocrQueueIndex >= ocrReviewQueue.length) ocrQueueIndex = ocrReviewQueue.length - 1;
         if (ocrQueueIndex < 0) ocrQueueIndex = 0;
         
         const cur = ocrReviewQueue[ocrQueueIndex];
+        if (!cur) {
+          bar.classList.remove("active");
+          bar.style.setProperty("display", "none", "important");
+          return;
+        }
         const lbl = cur.caseNo || cur.existing_case_no || cur.case_no || `Item ${ocrQueueIndex + 1}`;
-        bar.style.display = "flex";
+        bar.classList.add("active");
+        bar.style.setProperty("display", "flex", "important");
         
         const titleLbl = document.getElementById("queueTitleLbl");
         if (titleLbl) {
@@ -1515,17 +1633,45 @@ part8_features = """
         const saveNextBtn = document.getElementById("rqSaveNextBtn");
         if (saveNextBtn) {
           saveNextBtn.onclick = async () => {
-            await saveQueueItemDirectly(cur);
+            if (!ocrReviewQueue || ocrReviewQueue.length === 0) return;
+            const curItem = ocrReviewQueue[ocrQueueIndex];
+            if (!curItem) return;
+
+            let recToSave = null;
+            if (state.view === "pendingentry" || state.view === "legacy") {
+              const rawNo = extractCaseNumberOnly(document.getElementById("fCaseNo")?.value.trim());
+              if (rawNo) {
+                recToSave = getCaseObjectFromForm(state.view === "legacy");
+              }
+            }
+            if (!recToSave) {
+              recToSave = saveQueueItemDirectlyHelper(curItem);
+            }
+            await saveCaseRecord(recToSave);
+
             ocrReviewQueue.splice(ocrQueueIndex, 1);
             if (ocrReviewQueue.length === 0) {
+              ocrQueueIndex = 0;
               renderReviewQueueBanner();
-              render();
+              const statusMsg = document.getElementById("fStatusMsg");
+              if (statusMsg) {
+                statusMsg.textContent = `✓ Successfully saved Case ${recToSave.caseNo || ''}! Review queue completed.`;
+                statusMsg.style.color = "#12b76a";
+              }
+              const clearBtn = document.getElementById("fClearBtn");
+              if (clearBtn) clearBtn.click();
+              updateTopBarStats();
             } else {
               if (ocrQueueIndex >= ocrReviewQueue.length) ocrQueueIndex = ocrReviewQueue.length - 1;
               renderReviewQueueBanner();
               const nextItem = ocrReviewQueue[ocrQueueIndex];
               populateFormFromObject(nextItem);
               loadDocumentForCase(nextItem);
+              const statusMsg = document.getElementById("fStatusMsg");
+              if (statusMsg) {
+                statusMsg.textContent = `✓ Saved Case ${recToSave.caseNo || ''}! Loaded next case (${ocrQueueIndex + 1} of ${ocrReviewQueue.length}).`;
+                statusMsg.style.color = "#12b76a";
+              }
             }
           };
         }
@@ -1692,7 +1838,7 @@ part8_features = """
         return { name: t, address: "" };
       }
 
-      async function saveQueueItemDirectly(item) {
+      function saveQueueItemDirectlyHelper(item) {
         const type = item.type || item.case_type || "G";
         const cno = extractCaseNumberOnly(item.existing_case_no || item.caseNo || "");
         const chFromFn = extractCourtHallFromFilename(item.name || item.filename || item.path || item.file_path || "");
@@ -1716,13 +1862,15 @@ part8_features = """
           respN = sp.name; respA = sp.address;
         }
 
-        const rec = {
-          id: "c_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+        return {
+          id: item.id || ("c_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7)),
           hall: courtVal.includes("2") ? "II" : "I",
           court: courtVal,
           type: type,
+          case_type: `LGC(${type})`,
           caseNo: cno,
           existing_case_no: cno,
+          fullCaseNo: `L.G.C.(${type}).No.${cno}/${item.filedYear || item.filing_year || CURRENT_YEAR}`,
           cnr: item.cnr || "",
           applicant_name: appN,
           applicant_address: appA,
@@ -1769,8 +1917,11 @@ part8_features = """
           updatedAt: new Date().toISOString(),
           source: "ocr-review"
         };
-        state.cases.push(rec);
-        await saveCases();
+      }
+
+      async function saveQueueItemDirectly(item) {
+        const rec = saveQueueItemDirectlyHelper(item);
+        await saveCaseRecord(rec);
       }
 
       // 3. MULTI-SELECTION & EXPORT TOOLBAR
@@ -1881,17 +2032,26 @@ part8_features = """
       }
 
       // 4. DUPLICATE CHECKING FROM CASE.PY
-      function findDuplicateCaseRecord(caseNo, caseType, excludeId = null) {
+      function findDuplicateCaseRecord(caseNo, caseType, filingYear = null, excludeId = null) {
         if (!caseNo || !String(caseNo).trim()) return null;
-        const normTarget = String(caseNo).replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-        if (!normTarget) return null;
+        const normTargetNo = extractCaseNumberOnly(caseNo);
+        if (!normTargetNo) return null;
+        const targetType = caseType ? String(caseType).trim().toUpperCase() : "";
+        const targetYear = filingYear ? parseInt(filingYear, 10) : null;
         
         for (const c of state.cases) {
           if (excludeId && c.id === excludeId) continue;
-          const cno = c.caseNo || c.existing_case_no || "";
-          const normRow = String(cno).replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-          if (normRow === normTarget) {
-            return c;
+          const cno = extractCaseNumberOnly(c.caseNo || c.existing_case_no || "");
+          if (cno && cno === normTargetNo) {
+            const cType = String(c.type || c.case_type || "").trim().toUpperCase();
+            const cYear = parseInt(c.filedYear || c.filing_year, 10);
+            
+            const typeMatches = !targetType || !cType || targetType === cType || cType.includes(targetType) || targetType.includes(cType);
+            const yearMatches = !targetYear || !cYear || targetYear === cYear;
+            
+            if (typeMatches && yearMatches) {
+              return c;
+            }
           }
         }
         return null;
@@ -2108,15 +2268,16 @@ part8_features = """
         if (!dupEl) return;
         const cno = document.getElementById("fCaseNo")?.value.trim();
         const ctype = document.getElementById("fCaseType")?.value;
+        const cyear = document.getElementById("fFilingYear")?.value;
         if (!cno) {
           dupEl.style.display = "none";
           dupEl.textContent = "";
           return;
         }
-        const dup = findDuplicateCaseRecord(cno, ctype, activeEditCaseId);
+        const dup = findDuplicateCaseRecord(cno, ctype, cyear, activeEditCaseId);
         if (dup) {
           const dateStr = dup.nextHearing || dup.hearing_date || dup.disposedDate || dup.dispose_date || "N/A";
-          dupEl.innerHTML = `⚠️ <strong>Duplicate detected:</strong> Case '${escHtml(dup.caseNo || cno)}' already exists in DB (${dup.court || 'Hall ' + dup.hall}, Stage: ${escHtml(dup.currentStage || dup.stage || 'N/A')}, Date: ${dateStr}).`;
+          dupEl.innerHTML = `⚠️ <strong>Duplicate detected:</strong> Case '${escHtml(dup.caseNo || cno)}' (${dup.type || ctype}) already exists in DB (${dup.court || 'Hall ' + dup.hall}, Stage: ${escHtml(dup.currentStage || dup.stage || 'N/A')}, Date: ${dateStr}).`;
           dupEl.style.display = "block";
         } else {
           dupEl.style.display = "none";
@@ -4165,92 +4326,39 @@ part8_features = """
             document.getElementById("fCaseNo")?.focus();
             return;
           }
-          const hall = document.getElementById("fCourtHall").value;
-          const type = document.getElementById("fCaseType").value;
-          const year = parseInt(document.getElementById("fFilingYear").value, 10) || CURRENT_YEAR;
-          const fullCaseNo = `L.G.C.(${type}).No.${rawNo}/${year}`;
-          const isDisp = state.mode === "Disposed";
-          const hDate = isDisp ? "" : (document.getElementById("fHearingDate")?.value || "");
-          const dDate = isDisp ? (document.getElementById("fDisposeDate")?.value || "") : "";
-          const dNat = isDisp ? (document.getElementById("fDisposalNature")?.value || "Disposed") : "";
+          const rec = getCaseObjectFromForm(isLegacy);
+          await saveCaseRecord(rec);
 
-          const appN = document.getElementById("fApplicantName")?.value.trim() || "";
-          const appA = document.getElementById("fApplicantAddress")?.value.trim() || "";
-          const respN = document.getElementById("fRespondentName")?.value.trim() || "";
-          const respA = document.getElementById("fRespondentAddress")?.value.trim() || "";
-
-          const rec = {
-            id: activeEditCaseId || ("c_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7)),
-            hall: hall,
-            court: "Court Hall No." + (hall === "II" ? "2" : "1"),
-            type: type,
-            case_type: `LGC(${type})`,
-            caseNo: rawNo,
-            existing_case_no: rawNo,
-            fullCaseNo: fullCaseNo,
-            cnr: document.getElementById("fCnr")?.value.trim() || "",
-            applicant_name: appN,
-            applicant_address: appA,
-            respondent_name: respN,
-            respondent_address: respA,
-            applicants: (appN + (appA ? String.fromCharCode(10) + appA : "")).trim(),
-            respondents: (respN + (respA ? String.fromCharCode(10) + respA : "")).trim(),
-            filedYear: year,
-            filing_year: year,
-            stageGroup: document.getElementById("fStageGroup")?.value || (STAGE_TO_GROUP[document.getElementById("fCurrentStage")?.value] || ""),
-            stage_group: document.getElementById("fStageGroup")?.value || (STAGE_TO_GROUP[document.getElementById("fCurrentStage")?.value] || ""),
-            currentStage: document.getElementById("fCurrentStage")?.value || "",
-            stage: document.getElementById("fCurrentStage")?.value || "",
-            sub_stage: document.getElementById("fCurrentStage")?.value || "",
-            restoration: document.getElementById("fRestoration")?.value || (isDisp ? "N/A" : "No"),
-            restorationOfLand: document.getElementById("fRestoration")?.value || (isDisp ? "N/A" : "No"),
-            nextHearing: hDate,
-            hearing_date: hDate,
-            disposedDate: dDate,
-            dispose_date: dDate,
-            disposalNature: dNat,
-            disposal_nature: dNat,
-            status: isDisp ? "Disposed" : "Pending",
-            caseMode: state.mode,
-            landExtent: document.getElementById("fExtent")?.value.trim() || "",
-            extent: document.getElementById("fExtent")?.value.trim() || "",
-            extentUnit: document.getElementById("fExtentUnit")?.value || "Acre-Gunta",
-            unit: document.getElementById("fExtentUnit")?.value || "Acre-Gunta",
-            surveyNo: document.getElementById("fSurveyNo")?.value.trim() || "",
-            survey_no: document.getElementById("fSurveyNo")?.value.trim() || "",
-            wardNo: document.getElementById("fWardNo")?.value.trim() || "",
-            ward_no: document.getElementById("fWardNo")?.value.trim() || "",
-            pidNo: document.getElementById("fPidNo")?.value.trim() || "",
-            pid_no: document.getElementById("fPidNo")?.value.trim() || "",
-            propertyTaxAssessmentNo: document.getElementById("fTaxNo")?.value.trim() || "",
-            tax_no: document.getElementById("fTaxNo")?.value.trim() || "",
-            district: document.getElementById("fDistrict")?.value || "Bengaluru",
-            taluk: document.getElementById("fTaluk")?.value || "",
-            hobli: document.getElementById("fHobli")?.value || "",
-            village: document.getElementById("fVillage")?.value || "",
-            entryDate: new Date().toISOString().slice(0, 10),
-            entry_date: new Date().toISOString().slice(0, 10),
-            updatedAt: new Date().toISOString(),
-            createdAt: activeEditCaseId ? undefined : new Date().toISOString(),
-            source: isLegacy ? "legacy-entry" : "pending-entry"
-          };
-
-          if (activeEditCaseId) {
-            const idx = state.cases.findIndex(x => x.id === activeEditCaseId);
-            if (idx >= 0) state.cases[idx] = Object.assign({}, state.cases[idx], rec);
-            else state.cases.push(rec);
-          } else {
-            state.cases.push(rec);
-          }
-
-          await saveCases();
           const statusMsg = document.getElementById("fStatusMsg");
           if (statusMsg) {
-            statusMsg.textContent = `✓ Successfully saved ${fullCaseNo}!`;
-            statusMsg.style.color = "#2e7d32";
+            statusMsg.textContent = `✓ Successfully saved ${rec.fullCaseNo || rec.caseNo}!`;
+            statusMsg.style.color = "#12b76a";
           }
           activeEditCaseId = null;
-          updateTopBarStats();
+
+          // If OCR Review Queue is active, also advance or clear it!
+          if (ocrReviewQueue && ocrReviewQueue.length > 0) {
+            const qIdx = ocrReviewQueue.findIndex(q => 
+              extractCaseNumberOnly(q.caseNo || q.existing_case_no) === rawNo
+            );
+            const removeIdx = qIdx >= 0 ? qIdx : ocrQueueIndex;
+            if (removeIdx >= 0 && removeIdx < ocrReviewQueue.length) {
+              ocrReviewQueue.splice(removeIdx, 1);
+            }
+            if (ocrReviewQueue.length === 0) {
+              ocrQueueIndex = 0;
+              renderReviewQueueBanner();
+              if (statusMsg) {
+                statusMsg.textContent = `✓ Successfully saved ${rec.fullCaseNo || rec.caseNo}! Review queue completed.`;
+              }
+            } else {
+              if (ocrQueueIndex >= ocrReviewQueue.length) ocrQueueIndex = ocrReviewQueue.length - 1;
+              renderReviewQueueBanner();
+              const nextItem = ocrReviewQueue[ocrQueueIndex];
+              populateFormFromObject(nextItem);
+              loadDocumentForCase(nextItem);
+            }
+          }
         };
 
         if (isLegacy) {
