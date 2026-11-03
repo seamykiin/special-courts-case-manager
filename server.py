@@ -436,7 +436,7 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
 
                 # Sub-stage and stage group extraction
                 p_stage = ext.get("stage") or "Appearance of Respondent/Accused"
-                p_stgroup = ext.get("stage_group") or STAGE_TO_GROUP.get(p_stage, "Appearance")
+                p_stgroup = ext.get("stage_group") or STAGE_TO_GROUP.get(p_stage) or infer_stage_group_from_description(p_stage)
 
                 output_cases.append({
                     "name": p["name"],
@@ -490,7 +490,7 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
                 full_case_no = f"{prefix}.No.{cno_num}/{fyear}" if cno_num else f"{prefix}.No.New/{fyear}"
 
                 stage_val = ext.get("stage") or "Appearance of Respondent/Accused"
-                stgroup_val = ext.get("stage_group") or STAGE_TO_GROUP.get(stage_val, "Appearance")
+                stgroup_val = ext.get("stage_group") or STAGE_TO_GROUP.get(stage_val) or infer_stage_group_from_description(stage_val)
 
                 # Take court hall number from file name per user rule
                 ch_fn = extract_court_hall_from_filename(g.get("name", "")) or (extract_court_hall_from_filename(g["paths"][0]) if g.get("paths") else None)

@@ -401,12 +401,13 @@ def run_tesseract_ocr(img_source: str | bytes) -> str:
         # English sparse pass for stamps (CH. No), English numbers, and margin notes
         r3 = subprocess.run([tess_path, target_path, "stdout", "-l", "eng", "--psm", "11"], capture_output=True, timeout=40)
 
-        out6 = r_psm6.stdout.decode("utf-8", errors="replace") if r_psm6.stdout else ""
         out0 = r0.stdout.decode("utf-8", errors="replace") if r0.stdout else ""
+        out6 = r_psm6.stdout.decode("utf-8", errors="replace") if r_psm6.stdout else ""
         out1 = r1.stdout.decode("utf-8", errors="replace") if r1.stdout else ""
         out2 = r2.stdout.decode("utf-8", errors="replace") if r2.stdout else ""
         out3 = r3.stdout.decode("utf-8", errors="replace") if r3.stdout else ""
-        return out6 + "\n" + out0 + "\n" + out1 + "\n" + out2 + "\n" + out3
+        valid_passes = [p.strip() for p in (out0, out6, out1, out2, out3) if p.strip()]
+        return "\n\n=== OCR_PASS ===\n\n".join(valid_passes)
     except Exception:
         return ""
     finally:
@@ -980,7 +981,7 @@ STAGE_RULES = [
     (r"(?i)(?<!application\sis\s)(?<!application\s)(?<!ia\sis\s)(?<!i\.a\.\sis\s)\b(?:case\s+is\s+allowed|petition\s+is\s+allowed|appeal\s+is\s+allowed|claim\s+is\s+allowed)\b|(?<![\u0C80-\u0CFFa-zA-Z0-9])ಪುರಸ್ಕರಿಸಿದೆ(?![\u0C80-\u0CFFa-zA-Z0-9])", "Allowed"),
     (r"\bdisposed\b|(?<![\u0C80-\u0CFFa-zA-Z0-9])ವಿಲೇವಾರಿ(?![\u0C80-\u0CFFa-zA-Z0-9])", "Disposed"),
     (r"\b(?:orders?\s+on\s+i\.?a\.?)\b", "Orders on IA"),
-    (r"\borders?\b|(?<![\u0C80-\u0CFFa-zA-Z0-9])ಆದೇಶ(?:ಕ್ಕೆ|ಕ್ಕಾಗಿ|ದ)?(?![\u0C80-\u0CFFa-zA-Z0-9])", "Orders"),
+    (r"\b(?:for\s+orders?|posted\s+for\s+orders?|orders?\s+reserved|reserved\s+for\s+orders?|orders?\s+on\s+maintainability)\b|(?<![\u0C80-\u0CFFa-zA-Z0-9])ಆದೇಶಕ್ಕಾಗಿ(?![\u0C80-\u0CFFa-zA-Z0-9])", "Orders"),
 ]
 
 
@@ -990,6 +991,8 @@ def infer_stage_group_from_description(desc: str) -> str:
         return "Hearing"
     d_lower = desc.lower()
 
+    if any(k in d_lower for k in ("along with", "club with", "tagged with", "put up with", "call this case", "list this matter", "say of", "prosecutor", "transfer")):
+        return "Hearing"
     if any(k in d_lower for k in ("notice", "summons", "service", "bailable", "warrant", "process", "ನೋಟಿಸ್", "ಸಮನ್ಸ್", "ಜಾರಿ")):
         return "Criminal Process" if any(k in d_lower for k in ("nbw", "b/w", "bailable", "non-bailable", "ವಾರೆಂಟ್", "ವಾರಂಟ್")) else "Notice / Summons / Service"
     if any(k in d_lower for k in ("objection", "written statement", "pleading", "ws", "counter", "reply", "rejoinder", "ಆಕ್ಷೇಪಣೆ", "ಲಿಖಿತ ಹೇಳಿಕೆ")):
@@ -1033,7 +1036,7 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
     for _ in range(5):
         w = w.strip()
         w = re.sub(r"(?i)(?:(?:ದಿನಾಂಕ\s*[:\-]?)?\s*\d{1,2}[./\-]\d{1,2}[./\-]\d{2,4}\s*(?:ಕ್ಕೆ|ರಂದು|ಗೆ)?\s*(?:ಕರೆಯಿರಿ|ಮುಂದೂಡಿದೆ|ವಿಚಾರಣೆಗೆ|ಹಾಜರಾಗಲು)?)\s*$", "", w).strip()
-        w = re.sub(r"(?i)\b(?:call\s+on|adjourn(?:ed|ment)?\s+to|post(?:ed)?\s+to|re[- ]?list\s+(?:on|to)|fixed\s+for|listed\s+(?:on|to)|next\s+(?:date|hearing)\s*(?:is|on|to)?|hearing\s+on|by|date)\s*[:\-]?\s*$", "", w).strip()
+        w = re.sub(r"(?i)[\s:\-0-9&()\u0c80-\u0cff]*\b(?:call\s+on|adjourn(?:ed|ment)?\s+to|post(?:ed)?\s+to|re[- ]?list\s+(?:on|to)|fixed\s+for|listed\s+(?:on|to)|next\s+(?:date|hearing)\s*(?:is|on|to)?|hearing\s+on|by|date)[\s:\-0-9&()\u0c80-\u0cff]*$", "", w).strip()
         w = re.sub(r"(?:ಮುಂದೂಡಿದೆ|ಕರೆಯಿರಿ|ವಿಚಾರಣೆಗೆ|ಮುಂದಿನ\s*(?:ದಿನಾಂಕ|ವಿಚಾರಣೆಗೆ|ವಿಚಾರಣೆ)|ದಿನಾಂಕ|ದಿನಾಂಕದಂದು|ಕರೆ\s*ದಿನಾಂಕ|ಕರೆ)\s*[:\-]?\s*$", "", w).strip()
 
     junk_patterns = [
@@ -1042,6 +1045,9 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
         r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ನ್ಯಾಯಾಧೀಶರು|ಸದಸ್ಯರು|ಅಧ್ಯಕ್ಷರು|ಶಿರಸ್ತೇದಾರರು|ನ್ಯಾಯಾಂಗಣ[\-\s]*\d+)(?![\u0C80-\u0CFFa-zA-Z0-9])",
         r"(?i)\b(?:want\s+of\s+quorum|for\s+want\s+of\s+quorum|quorum|quoram|coram\s+absent)\b",
         r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಕೋರಂ\s*ಕೊರತೆ|ಕೋರಂ)(?![\u0C80-\u0CFFa-zA-Z0-9])",
+        r"(?i)\b(?:respondent\s+called\s+out|called\s+out|absent|counsel\s+for\s+respondent\s+is\s+present|counsel\s+for|advocate\s+for|is\s+present)\b",
+        r"(?i)\b(?:matter\s+taken\s+up|taken\s+up\s+on\s+board|before\s+the\s+court|on\s+transfer|assigned\s+to\s+court\s+hall|withdrawn\s+from)\b",
+        r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಗೈರುಹಾಜರು|ಹಾಜರಿದ್ದಾರೆ|ಹಾಜರಿಲ್ಲ)(?![\u0C80-\u0CFFa-zA-Z0-9])",
     ]
 
     # Protect dots in dates (e.g. 15.11.2026) and legal abbreviations (e.g. I.A., C.W.)
@@ -1049,11 +1055,21 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
     w_prot = re.sub(r"\b([A-Za-z])\.([A-Za-z])\.", r"\1<DOT>\2<DOT>", w_prot)
     w_prot = re.sub(r"\b([A-Za-z]{1,4})\.", r"\1<DOT>", w_prot)
 
-    # Split into lines and sentences
-    raw_lines = re.split(r"[\n;।\.]+", w_prot)
+    # Reconstruct multi-line sentences: join wrapped lines unless previous line ended in punctuation
+    lines = [l.strip() for l in w_prot.split("\n") if l.strip()]
+    raw_sentences = []
+    curr = []
+    for l in lines:
+        curr.append(l)
+        if re.search(r"[\.;।]$", l):
+            raw_sentences.append(" ".join(curr))
+            curr = []
+    if curr:
+        raw_sentences.append(" ".join(curr))
+
     cleaned_candidates = []
-    for line in raw_lines:
-        line_str = line.replace("<DOT>", ".").strip()
+    for line in raw_sentences:
+        line_str = line.replace("<DOT>", ".").replace("<DECIMAL>", ".").strip()
         # Strip bullets/numbering like "1.", "1)", "(1)", "a.", "-", "*"
         line_str = re.sub(r"^(?:\d+[\.\)\-:]|\([0-9a-zA-Z]+\)|[a-zA-Z][\.\)\-:]|[\-\*•])\s*", "", line_str).strip()
 
@@ -1061,7 +1077,7 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
         for jp in junk_patterns:
             if re.search(jp, line_str):
                 sub_clean = re.sub(jp, "", line_str).strip(" ,.-:")
-                if len(sub_clean) < 4:
+                if len(re.findall(r"[\u0C80-\u0CFFa-zA-Z]", sub_clean)) < 6:
                     is_junk = True
                     break
         if is_junk or len(line_str) < 4:
@@ -1076,6 +1092,8 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
 
     # Search backwards for a purpose-bearing sentence
     purpose_indicators = [
+        r"(?i)\b(?:call\s+(?:this\s+case\s+)?along\s+with|along\s+with|club\s+with|tagged\s+with|put\s+up\s+with|for\s+say\s+of|say\s+of|await\s+say)\b",
+        r"(?<![\u0C80-\u0CFFa-zA-Z0-9])(?:ಜೊತೆಗೆ\s*ಕರೆಯಿರಿ|ಜೊತೆಗೆ|ಕರೆಯಲು)(?![\u0C80-\u0CFFa-zA-Z0-9])",
         r"(?i)\b(?:for|to|towards)\s+",
         r"(?i)\b(?:time\s+(?:prayed|sought|granted|extended|given)|seeks?\s+time|prays?\s+time)\b",
         r"(?i)\b(?:objections?|report|notice|summons|steps|evidence|witness|hearing|arguments?|orders?|judgment|counter|rejoinder|pleadings?|warrant|nbw)\b",
@@ -1097,6 +1115,10 @@ def summarize_call_description_from_window(window_above: str, full_text: str = "
 
     # Clean leading order tags
     s_clean = re.sub(r"^(?:order\s*[:\-]|ಆದೇಶ\s*[:\-]|ನಡಾವಳಿ\s*[:\-])\s*", "", selected_sent, flags=re.I).strip()
+    # Extract from primary directive if present to cleanly eliminate leading margin stamps/digits
+    m_dir = re.search(r"(?i)\b(?:call\s+(?:this\s+case\s+)?along\s+with|call\s+this\s+case|along\s+with|put\s+up\s+along\s+with|list\s+this\s+matter|for\s+say\s+of|say\s+of|for\s+|to\s+|issue\s+|re[- ]?issue\s+|await\s+|notice\s+|summons\s+|warrant\s+|objection\s+|arguments?\b|orders?\b|hearing\b).*", s_clean)
+    if m_dir:
+        s_clean = m_dir.group(0).strip(" ,.-:;")
 
     # Reject OCR noise or strings with too few actual Kannada/English letters
     clean_letters = re.findall(r"[\u0C80-\u0CFFa-zA-Z]", s_clean)
@@ -1404,6 +1426,22 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
     """Extracts applicant and respondent text blocks strictly from court document headers."""
     if not text:
         return "", ""
+
+    # If text contains multiple OCR passes (separated by === OCR_PASS === or multiple newlines), evaluate each pass
+    passes = [p.strip() for p in re.split(r"(?:=== OCR_PASS ===|\n{3,})", text) if p.strip()]
+    if len(passes) > 1:
+        best_app, best_resp = "", ""
+        for p in passes:
+            a, r = extract_parties_from_text(p)
+            if a and r and not is_procedural_or_garbage_party(a) and not is_procedural_or_garbage_party(r):
+                return a, r
+            if a and not best_app and not is_procedural_or_garbage_party(a):
+                best_app = a
+            if r and not best_resp and not is_procedural_or_garbage_party(r):
+                best_resp = r
+        if best_app or best_resp:
+            return best_app, best_resp
+
     t = text.replace("\r", "")
 
     # 1. Guard against procedural daily order sheets
@@ -1513,7 +1551,7 @@ def _clean_party_str(s: str) -> str:
     t = re.sub(r"Mahara\s*Rani\s*Kere\s*(?:Near|Hattira)?", "Near Maharani Kere", t, flags=re.I)
     t = re.sub(r"(?:Taluk,?\s*)?Maharani\s*(?:ee\)?|kere)?\s*(?:Near|Hattira),?\s*(?:Mudho\b|Mudhol\b)?", "Near Maharani Kere, Mudhol", t, flags=re.I)
     t = re.sub(r"\bHattira\b", "Near", t, flags=re.I)
-    t = re.sub(r"\bSa\b[!\।\|:\.]*", "", t)
+    t = re.sub(r"\b(?:Sa|Ga|mall|wall)\b[!\।\|:\.\s]*", "", t)
     t = re.sub(r"\bS\s+(?=Mudhol)", "", t)
     t = re.sub(r"\b[A-Za-z]\s+\d+\b", "", t)  # e.g. T 5 from margin
     t = re.sub(r"^[A-Za-z\s]+(?=\d+[\.\)])", "", t)  # e.g. Ka 1. -> 1.
@@ -1640,7 +1678,7 @@ def _split_single_party(text: str, prefix: str = "") -> tuple[str, str]:
     clean_addr = re.sub(r"^(?:Late\s+)?(?:\d+\.|\d+\))\s*", "", clean_addr).strip()
     clean_addr = re.sub(r"^[A-Za-z]{1,2}\s+(?=No\.?\s*\d+|Near|Beside|Cross|Road)", "", clean_addr)
     clean_addr = re.split(r"(?i)(?:KARNAT\s*AKA\s*LAND|KARNATAKA\s*LAND|3(?:RD|\"°)?\s*FLOOR|KANDAYA\s*BHA|PROHIBITION\s*SPECIAL|Chief\s*Metropolitan|Rons[- ]*Bes)", clean_addr)[0].strip(" ,.-:;")
-    clean_addr = re.sub(r"(?i)(?:\b(?:L\.?G\.?C|C\.?C|Complainant|SHO|BMTF|BBMP)\b|1°|1[5\d]\/\d+).*", "", clean_addr).strip(" ,.-:;")
+    clean_addr = re.sub(r"(?i)(?:\b(?:L\.?G\.?C|C\.?C|Complainant|SHO|BMTF|BBMP)\b|1°|(?:\b(?:CC|LGC|Cr\.?No)\s*[:\-]?\s*)\d+\/\d+).*", "", clean_addr).strip(" ,.-:;")
     clean_addr = re.sub(r"(?i)\b(?:adesha(?:da)?\s*(?:prati|patra|patre|pati)|order\s*sheet|daily\s*order)\b.*", "", clean_addr).strip(" ,.-:;")
     clean_addr = re.sub(r"\s+", " ", clean_addr).strip(" ,.-:;")
 
@@ -1665,7 +1703,7 @@ def split_party_name_and_address(text: str) -> tuple[str, str]:
         return "", ""
 
     # Check for common address line (e.g. 4 to 7 address: Lokapura...)
-    m_common = re.search(r"(?:Edurudara|Respondent[s]?|Accused)\s*(?:Na[೦\d\.]*|No\.?)?\s*(\d+)[\.\s]*(?:Rinda|to|\-)[\.\s]*(\d+)[\.\s]*(?:Ravara\s*)?(?:Vilasa|Address)\s*[:\-]\s*(.*)", cleaned, re.I | re.S)
+    m_common = re.search(r"(?:Edurudara|Respondent[s]?|Accused)\s*(?:Na[೦\d\.]*|No[೦\d\.]*|[A-Za-z\.]*)*\s*(\d+)[\.\s]*(?:Rinda|to|\-)[\.\s]*(\d+)[\.\s]*(?:Ravara\s*)?(?:Vilasa|Address)\s*[:\-]\s*(.*)", cleaned, re.I | re.S)
     common_start, common_end, common_addr = None, None, ""
     text_to_parse = cleaned
     if m_common:
@@ -2634,8 +2672,9 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             if win_candidates:
                 # Sort by priority, then proximity closest to hearing date (highest start pos)
                 win_candidates.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
-                assigned_sub_stage = win_candidates[0][3]
-                assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage)
+                if win_candidates[0][0] >= 10:
+                    assigned_sub_stage = win_candidates[0][3]
+                    assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage)
     elif cleaned.get("hearing_date"):
         hd_val = cleaned["hearing_date"]
         m_hd = re.search(r"(\d{4})-(\d{2})-(\d{2})", hd_val)
@@ -2655,6 +2694,14 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             window_above = raw_clean_text[-1000:] if raw_clean_text.strip() else text_clean[-1000:]
     else:
         window_above = raw_clean_text[-1000:] if raw_clean_text.strip() else text_clean[-1000:]
+
+    # Rule: When the sub stage group is not matching, write own description of the case
+    # from the available sentences above the next hearing date!
+    if not assigned_sub_stage and window_above:
+        desc, grp = summarize_call_description_from_window(window_above, full_text=raw_clean_text)
+        if desc:
+            assigned_sub_stage = desc
+            assigned_stage_group = grp
 
     # Step 2: Fallback to broader prior text before quorum/end if immediate window had no specific match
     if not assigned_sub_stage:
@@ -2686,8 +2733,9 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
 
             if stage_candidates:
                 stage_candidates.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
-                assigned_sub_stage = stage_candidates[0][3]
-                assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage)
+                if stage_candidates[0][0] >= 10:
+                    assigned_sub_stage = stage_candidates[0][3]
+                    assigned_stage_group = STAGE_TO_GROUP.get(assigned_sub_stage)
 
     # Step 3: Global fallback
     if not assigned_sub_stage:
@@ -2933,16 +2981,25 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
                     target[k] = v
                 elif k == "hearing_date" and v:
                     target[k] = v
+                    if ext.get("stage"):
+                        target["stage"] = ext["stage"]
+                        target["currentStage"] = ext["stage"]
+                        target["sub_stage"] = ext["stage"]
+                        if ext.get("stage_group"):
+                            target["stage_group"] = ext["stage_group"]
+                            target["stageGroup"] = ext["stage_group"]
                 elif k == "stage" and v and (
                     target.get(k) in ("", "Hearing", "Other", "Orders", "Appearance of Accused", "Sworn Statement")
                     or "notice" in str(v).lower()
                     or "form" in str(v).lower()
                     or "witness" in str(v).lower()
                     or "hbc" in str(v).lower()
+                    or ext.get("hearing_date")
                 ):
                     target[k] = v
                     if ext.get("stage_group"):
                         target["stage_group"] = ext["stage_group"]
+                        target["stageGroup"] = ext["stage_group"]
                 elif k in ("extent", "unit") and v:
                     target[k] = v
                 elif k in ("applicants", "respondents", "applicant_name", "applicant_address", "respondent_name", "respondent_address"):
