@@ -40767,8 +40767,10 @@ function reconcileWorkflowValue(existing, value) {
       function cleanPartyStr(s) {
         if (!s) return "";
         let t = String(s).trim();
-        t = t.replace(/\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b/gi, "");
+        t = t.replace(/\b(?:adesha(?:da)?\s*(?:prati|patra|patre|pati)|order\s*sheet|daily\s*order)\b.*/gi, "");
+        t = t.replace(/(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತಿ|ಪತ್ರ|ಪತ್ರೆ|BS|ಪ್ರತೀ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+.*)/gi, "");
         t = t.replace(/["'”"‘'`£§©®™*^~_\\|]/g, "");
+        t = t.replace(/[\b,\s]*8[೬6][೦0%]+%?[\b,\s]*/g, ", ");
         t = t.replace(/\b[5$S]\/[0o]\b/gi, "S/o");
         t = t.replace(/\bW\/[0o]\b/gi, "W/o");
         t = t.replace(/\bD\/[0o]\b/gi, "D/o");
@@ -40796,6 +40798,9 @@ function reconcileWorkflowValue(existing, value) {
         t = t.replace(/\b13\s+Narayana\s+Reddy\b.*?\broad\b/gi, "13 Cross road");
         t = t.replace(/[\u0C80-\u0CFF]/g, "");
         t = t.replace(/\bYusaf\b/g, "Yusuf");
+        t = t.replace(/\bKa[೦0]?N?ndavara\b/gi, "Kandavara");
+        t = t.replace(/\b(?:ALL\s*[0oO]|docsos)\b/gi, "");
+        t = t.replace(/(\w+)\.\s+(Taluk|District|Hobli|Village)\b/gi, "$1 $2");
         return t.replace(/\s+/g, " ").trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
       }
 
@@ -40836,27 +40841,62 @@ function reconcileWorkflowValue(existing, value) {
         }
 
         const addrKw = /\b(?:No\.?\s*\d+|Near\b|Beside\b|Behind\b|Backside\b|Cross\b|Road\b|Bake\s+Palace|Layout\b|Nagar\b|Colony\b|Sector\b|Post\b|Village\b|Hobli\b|Taluk\b|District\b|Bengaluru|Bangalore|Shivashakthi|Ambedkar|Slum|Temple)\b|[\u0C80-\u0CFF]*(?:ಗ್ರಾಮ|ಗಾಮ|ಹೋಬಳಿ|ತಾಲ್ಲೂಕು|ತಾಲೂಕು|ಜಿಲ್ಲೆ|ರಸ್ತೆ|ಬಡಾವಣೆ|ನಗರ|ದೇವಸ್ಥಾನ|ನಂ\.?\s*\d+|ಹತ್ತಿರ)/i;
-        const relKw = /\b(?:S\/o|W\/o|D\/o|C\/o|Bin|Kom|son\s+of|wife\s+of|daughter\s+of)\b/i;
-        const ageKw = /\b(?:Aged?\s+about\s+\d+\s*(?:years?|yrs)?|Age\s*[:\s]\s*\d+|major)\b[\s,]*/gi;
+        const relKw = /\b(?:S\/o|W\/o|D\/o|C\/o|Bin|BN|Kom|son\s+of|wife\s+of|daughter\s+of)\b/i;
+        const ageKw = /\b(?:Aged?\s+about\s+\d+\s*(?:years?|yrs)?|Age\s*[:\s\-]\s*\d+|major|8[೬6][೦0%]+%?)\b[\s,]*/gi;
 
         let rawName = "", rawAddr = "";
-        const mRel = t.match(relKw);
-        if (mRel && mRel.index !== undefined) {
-          rawName = t.slice(0, mRel.index).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
-          const afterRel = t.slice(mRel.index + mRel[0].length).trim();
-          rawAddr = getAddrFromAfterRel(afterRel);
+        const mAge = t.match(ageKw);
+        if (mAge && mAge.index !== undefined) {
+          rawName = t.slice(0, mAge.index).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+          rawAddr = t.slice(mAge.index + mAge[0].length).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
         } else {
-          const mAddr = t.match(addrKw);
-          if (mAddr && mAddr.index !== undefined) {
-            rawName = t.slice(0, mAddr.index).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
-            rawAddr = t.slice(mAddr.index).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
-          } else if (t.includes(":")) {
-            const idx = t.indexOf(":");
-            rawName = t.slice(0, idx).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
-            rawAddr = t.slice(idx + 1).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+          const mRel = t.match(relKw);
+          if (mRel && mRel.index !== undefined) {
+            const beforeRel = t.slice(0, mRel.index).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+            const relStr = mRel[0].trim();
+            const afterRel = t.slice(mRel.index + mRel[0].length).trim();
+            if (afterRel.includes(",")) {
+              const firstCommaIdx = afterRel.indexOf(",");
+              const firstPart = afterRel.slice(0, firstCommaIdx).trim();
+              const rest = afterRel.slice(firstCommaIdx + 1).trim();
+              if (!addrKw.test(firstPart) && firstPart.split(/\s+/).length <= 4) {
+                rawName = `${beforeRel} ${relStr} ${firstPart}`.trim();
+                rawAddr = rest.replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+              } else {
+                rawName = `${beforeRel} ${relStr}`.trim();
+                rawAddr = afterRel.replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+              }
+            } else {
+              const mAddr = afterRel.match(addrKw);
+              if (mAddr && mAddr.index !== undefined) {
+                const preAddr = afterRel.slice(0, mAddr.index).trim();
+                const words = preAddr.split(/\s+/);
+                if (words.length > 1 && /\b(?:Village|Hobli|Taluk)\b/i.test(afterRel.slice(mAddr.index))) {
+                  const fStr = words.slice(0, -1).join(" ");
+                  rawName = `${beforeRel} ${relStr} ${fStr}`.trim();
+                  rawAddr = `${words[words.length - 1]} ${afterRel.slice(mAddr.index)}`.trim();
+                } else {
+                  rawName = `${beforeRel} ${relStr} ${preAddr}`.trim();
+                  rawAddr = afterRel.slice(mAddr.index).trim();
+                }
+              } else {
+                rawName = `${beforeRel} ${relStr} ${afterRel}`.trim();
+                rawAddr = "";
+              }
+            }
           } else {
-            rawName = t.trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
-            rawAddr = "";
+            const mAddr = t.match(addrKw);
+            if (mAddr && mAddr.index !== undefined) {
+              rawName = t.slice(0, mAddr.index).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+              rawAddr = t.slice(mAddr.index).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+            } else if (t.includes(":")) {
+              const idx = t.indexOf(":");
+              rawName = t.slice(0, idx).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+              rawAddr = t.slice(idx + 1).trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+            } else {
+              rawName = t.trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+              rawAddr = "";
+            }
           }
         }
 
@@ -40871,6 +40911,7 @@ function reconcileWorkflowValue(existing, value) {
         cleanAddr = cleanAddr.replace(/^[A-Za-z]{1,2}\s+(?=No\.?\s*\d+|Near|Beside|Cross|Road)/, "");
         cleanAddr = cleanAddr.split(/(?:KARNAT\s*AKA\s*LAND|KARNATAKA\s*LAND|3(?:RD|"°)?\s*FLOOR|KANDAYA\s*BHA|PROHIBITION\s*SPECIAL|Chief\s*Metropolitan|Rons[- ]*Bes)/i)[0].trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
         cleanAddr = cleanAddr.replace(/(?:\b(?:L\.?G\.?C|C\.?C|Complainant|SHO|BMTF|BBMP)\b|1°|1[5\d]\/\d+).*/gi, "").trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
+        cleanAddr = cleanAddr.replace(/\b(?:adesha(?:da)?\s*(?:prati|patra|patre|pati)|order\s*sheet|daily\s*order)\b.*/gi, "").trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
         cleanAddr = cleanAddr.replace(/\s+/g, " ").trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
 
         return { name: cleanName, address: cleanAddr };
@@ -40878,8 +40919,8 @@ function reconcileWorkflowValue(existing, value) {
 
       function splitPartyNameAndAddress(text) {
         if (!text) return { name: "", address: "" };
-        let str = String(text).replace(/\b(?:adesha(?:da)?\s*prati|adesha\s*patra|order\s*sheet|daily\s*order)\b/gi, "");
-        str = str.replace(/(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತ್ರ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+.*)/g, "");
+        let str = String(text).replace(/\b(?:adesha(?:da)?\s*(?:prati|patra|patre|pati)|order\s*sheet|daily\s*order)\b.*/gi, "");
+        str = str.replace(/(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತಿ|ಪತ್ರ|ಪತ್ರೆ|BS|ಪ್ರತೀ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+.*)/gi, "");
         str = str.trim().replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "");
         if (!str) return { name: "", address: "" };
 
@@ -41010,8 +41051,8 @@ function reconcileWorkflowValue(existing, value) {
         if (!respN && (item.respondents || item.respondent)) {
           const sp = splitPartyNameAndAddress(item.respondents || item.respondent);
           respN = sp.name; respA = sp.address;
-        } else if (respN && (!respA || /(?:S\/o|W\/o|D\/o|C\/o|Bin|Kom|5\/0|\$\/o)/i.test(respN))) {
-          const sp = splitPartyNameAndAddress(respN + (respA ? String.fromCharCode(10) + respA : ""));
+        } else if (respN && !respA) {
+          const sp = splitPartyNameAndAddress(respN);
           if (sp.name) respN = sp.name;
           if (sp.address) respA = sp.address;
         }
@@ -41149,8 +41190,8 @@ function reconcileWorkflowValue(existing, value) {
           if (!respN && (c.respondents || c.respondent)) {
             const sp = splitPartyNameAndAddress(c.respondents || c.respondent);
             respN = sp.name; respA = sp.address;
-          } else if (respN && (!respA || /(?:S\/o|W\/o|D\/o|C\/o|Bin|Kom|5\/0|\$\/o)/i.test(respN))) {
-            const sp = splitPartyNameAndAddress(respN + (respA ? String.fromCharCode(10) + respA : ""));
+          } else if (respN && !respA) {
+            const sp = splitPartyNameAndAddress(respN);
             if (sp.name) respN = sp.name;
             if (sp.address) respA = sp.address;
           }
@@ -41323,8 +41364,8 @@ function reconcileWorkflowValue(existing, value) {
         if (!respN && (data.respondents || data.respondent)) {
           const sp = splitPartyNameAndAddress(data.respondents || data.respondent);
           respN = sp.name; respA = sp.address;
-        } else if (respN && (!respA || /(?:S\/o|W\/o|D\/o|C\/o|Bin|Kom|5\/0|\$\/o)/i.test(respN))) {
-          const sp = splitPartyNameAndAddress(respN + (respA ? String.fromCharCode(10) + respA : ""));
+        } else if (respN && !respA) {
+          const sp = splitPartyNameAndAddress(respN);
           if (sp.name) respN = sp.name;
           if (sp.address) respA = sp.address;
         }
@@ -42074,12 +42115,12 @@ function reconcileWorkflowValue(existing, value) {
                         <input type="text" id="scanFldApplicantName" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
                       </div>
                       <div>
-                        <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Respondent Name(s)</label>
-                        <input type="text" id="scanFldRespondentName" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
-                      </div>
-                      <div>
                         <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Applicant Address</label>
                         <input type="text" id="scanFldApplicantAddress" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
+                      </div>
+                      <div>
+                        <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Respondent Name(s)</label>
+                        <input type="text" id="scanFldRespondentName" style="width:100%;padding:4px 6px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;">
                       </div>
                       <div>
                         <label style="display:block;font-size:10.5px;font-weight:600;color:#64748b;margin-bottom:2px;">Respondent Address</label>
@@ -42230,8 +42271,8 @@ function reconcileWorkflowValue(existing, value) {
           if (!curRespN && (cur.respondents || cur.respondent)) {
             const sp = splitPartyNameAndAddress(cur.respondents || cur.respondent);
             curRespN = sp.name; curRespA = sp.address;
-          } else if (curRespN && (!curRespA || /(?:S\/o|W\/o|D\/o|C\/o|Bin|Kom|5\/0|\$\/o)/i.test(curRespN))) {
-            const sp = splitPartyNameAndAddress(curRespN + (curRespA ? String.fromCharCode(10) + curRespA : ""));
+          } else if (curRespN && !curRespA) {
+            const sp = splitPartyNameAndAddress(curRespN);
             if (sp.name) curRespN = sp.name;
             if (sp.address) curRespA = sp.address;
           }
@@ -43090,12 +43131,12 @@ function reconcileWorkflowValue(existing, value) {
                   <textarea id="fApplicantName" rows="2" placeholder="Applicant name(s) in English..."></textarea>
                 </div>
                 <div class="field">
-                  <label>Respondent Name(s)</label>
-                  <textarea id="fRespondentName" rows="2" placeholder="Respondent name(s) in English (e.g. 1. Name S/o... 2. Name W/o...)..."></textarea>
-                </div>
-                <div class="field">
                   <label>Applicant Address</label>
                   <textarea id="fApplicantAddress" rows="2" placeholder="Applicant address in English (Taluk, District, etc.)..."></textarea>
+                </div>
+                <div class="field">
+                  <label>Respondent Name(s)</label>
+                  <textarea id="fRespondentName" rows="2" placeholder="Respondent name(s) in English (e.g. 1. Name BN/W/o/D/o...)..."></textarea>
                 </div>
                 <div class="field">
                   <label>Respondent Address</label>
