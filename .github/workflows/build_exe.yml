@@ -1,0 +1,49 @@
+name: Build Windows Application (.EXE)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server.py'
+      - 'desktop_app.py'
+      - 'generate_final_index.py'
+      - 'LGCCaseRegister.spec'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller pillow pywebview
+
+      - name: Generate Latest index.html
+        run: |
+          python generate_final_index.py
+
+      - name: Compile Executable with PyInstaller
+        run: |
+          pyinstaller --clean --noconfirm LGCCaseRegister.spec
+
+      - name: Create Zip Archive
+        run: |
+          Compress-Archive -Path dist\LGCCaseRegister\* -DestinationPath dist\LGCCaseRegister-Windows.zip
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LGCCaseRegister-Windows-x64
+          path: dist/LGCCaseRegister-Windows.zip
+          retention-days: 30

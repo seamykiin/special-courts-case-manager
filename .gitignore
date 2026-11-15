@@ -13,3 +13,9 @@ media_*
 .idea/
 .vscode/
 Case.code-workspace
+build/
+dist/
+scratch/
+index(*).html
+index(*
+
