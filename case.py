@@ -2038,7 +2038,17 @@ def is_procedural_or_garbage_party(val: str) -> bool:
         return True
     v = str(val).strip()
     v_low = v.lower()
-    if re.search(r"(?i)\b(?:called\s+out|taken\s+up\s+on\s+board|matter\s+taken|case\s+is\s+adjourned|minimum\s+quorum|for\s+say\s+of|public\s+prosecutor|call\s+on\s+\d+|speed\s+post|witness\s+summons|judicial\s+member|revenue\s+member|adesha(?:da)?\s*prati|order\s*sheet|daily\s*order|survey\s*no|gayarana|ottuvari|angadi|nirmana|eruddha|viruddha|erudda|virudda|vaste|edurudararu|arjidararu)\b", v_low):
+    proc_pat = (
+        r"(?i)\b(?:called\s+out|taken\s+up\s+on\s+board|matter\s+taken|case\s+is\s+adjourned|"
+        r"minimum\s+quorum|for\s+say\s+of|public\s+prosecutor|call\s+on\s*[\d\w]+|speed\s+post|"
+        r"witness\s+summons|judicial\s+member|revenue\s+member|adesha(?:da)?\s*prati|order\s*sheet|"
+        r"daily\s*order|survey\s*no|gayarana|ottuvari|angadi|nirmana|eruddha|viruddha|erudda|virudda|"
+        r"vaste|edurudararu|arjidararu|petition\s+on\s+hand|alleging\s+encroachment|"
+        r"encroachment\s+of\s+government\s+land|report\s+of\s+the\s+tahsildar|pre-cognizance\s+stage|"
+        r"issue\s+notice\s+to|cause\s+notice|for\s+appearance\s+and\s+objection|appearance\s+and\s+objection|"
+        r"alalrc|gre\s*86|nos?\.?\s*\d+\s+and\s+\d+\s+for)\b"
+    )
+    if re.search(proc_pat, v_low):
         return True
     if re.match(r"^[\d\s.,\-_/\\:;*#=]+$", v):
         return True
@@ -2046,6 +2056,8 @@ def is_procedural_or_garbage_party(val: str) -> bool:
     if len(letters) < 3:
         return True
     if re.match(r"^=+\s*(?:vaste|eruddha|viruddha|aro|\d+)", v_low) or v_low.startswith("= vaste"):
+        return True
+    if re.fullmatch(r"[a-z]{4,8}", v_low) and not any(vowel in v_low for vowel in "aeiouy"):
         return True
     return False
 
@@ -2115,7 +2127,14 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
                 return best_a, best_r
 
     t = t_clean
-    proc_kw = r"(?i)\b(?:called\s+out|taken\s+up\s+on\s+board|matter\s+taken\s+up|case\s+is\s+adjourned|minimum\s+quorum|for\s+say\s+of\s+the\s+learned|counsel\s+for\s+respondent|witness\s+summons|call\s+on\s+\d+|list\s+this\s+matter)\b"
+    proc_kw = (
+        r"(?i)\b(?:called\s+out|taken\s+up\s+on\s+board|matter\s+taken\s+up|case\s+is\s+adjourned|"
+        r"minimum\s+quorum|for\s+say\s+of\s+the\s+learned|counsel\s+for\s+respondent|witness\s+summons|"
+        r"call\s+on\s*[\d\w]+|list\s+this\s+matter|petition\s+on\s+hand|alleging\s+encroachment|"
+        r"encroachment\s+of\s+government\s+land|report\s+of\s+the\s+tahsildar|pre-cognizance\s+stage|"
+        r"issue\s+notice\s+to|cause\s+notice|for\s+appearance\s+and\s+objection|appearance\s+and\s+objection|"
+        r"judicial\s+member|revenue\s+member)\b"
+    )
     party_hdr_kw = r"(?:[ಅಾ]?ರ್ಜಿದಾರರು?|ದೂರುದಾರರು?|ಫಿರ್ಯಾದುದಾರರು?|ಎದುರುದಾರರು?|ಪ್ರತಿವಾದಿ)"
 
     end_match = re.search(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತಿ|ಪತ್ರ|ಪತ್ರೆ|BS|ಪ್ರತೀ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು)", t, re.IGNORECASE)
@@ -2127,7 +2146,7 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
 
     sep_match = re.search(r"(?:-?\s*ವಿರುದ್ಧ\s*-?|-?\s*ವಿರುದ್ದ\s*-?|\bvs\.?\b|\bv/s\b|\bversus\b)", header_text, re.IGNORECASE)
     if not sep_match:
-        sep_match = re.search(r"(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)(?:\s*ನಂ\.?)?\s*[:\-]?", header_text, re.IGNORECASE)
+        sep_match = re.search(r"(?m)(?:^[ \t]*|[ \t]+)(?<!(?:by\s+the|to\s+the|against\s+the|of\s+the)\s)(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)(?:\s*(?:ನಂ\.?|nos?\.?))?\s*[:\-]", header_text, re.IGNORECASE)
 
     if not sep_match:
         if re.search(r"(?i)(?:^|\s)[Z~“\”‘\’\`\\\/]*A\s*\d+[\.\)]", header_text):
@@ -2151,6 +2170,10 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
             if re.search(r"^\s*(?:[1೧]\.|\bA1\b|\b1\))\s*[A-Za-z\u0C80-\u0CFF]", line):
                 start_app_idx = i
                 break
+
+    if start_app_idx == -1 and not re.search(r"(?:-?\s*ವಿರುದ್ಧ\s*-?|-?\s*ವಿರುದ್ದ\s*-?|\bvs\.?\b|\bv/s\b|\bversus\b)", header_text, re.IGNORECASE):
+        # A valid applicant block strictly requires either an applicant header (ಅರ್ಜಿದಾರರು / Complainant) or an explicit -ವಿರುದ್ಧ- separator
+        return "", ""
 
     if start_app_idx != -1:
         clean_lines = lines[start_app_idx:]
@@ -2420,8 +2443,13 @@ def _clean_addr_str(addr: str) -> str:
     s = re.sub(r'(?i)\b(?:La\s*Jya|8\s*aro|aro)\b[\s,]*', '', s)
     s = re.sub(r'(?i)\b(?:Heo\s*npe9|Oya\s*gral|Viruda|La,\s*Khu)\b[\s,]*', '', s)
 
-    # Strip terminal noise following 6-digit PIN code
-    s = re.sub(r'(\b\d{3}[-\s]?\d{3}\b)[\s.,;:\-_=]+.*$', r'\1', s, flags=re.DOTALL)
+    # Strip terminal noise following 6-digit PIN code only if tail contains no address keywords
+    m_last_pin = list(re.finditer(r'\b\d{3}[-\s]?\d{3}\b', s))
+    if m_last_pin:
+        last_m = m_last_pin[-1]
+        tail = s[last_m.end():]
+        if not re.search(r'\b(?:Taluk|District|Hobli|Post|Village|Grama|Halli|Bengaluru|Bangalore|Kolar|Chikkaballapura)\b', tail, re.I):
+            s = s[:last_m.end()]
 
     raw_lines = s.split('\n')
     cleaned_lines = []
@@ -2444,8 +2472,36 @@ def _clean_addr_str(addr: str) -> str:
 
     s = ', '.join(cleaned_lines)
     s = re.sub(r',\s*,+', ', ', s)
-    s = re.sub(r'(\b\d{3}[-\s]?\d{3}\b)[\s.,;:\-_=]+.*$', r'\1', s)
+    m_last_pin2 = list(re.finditer(r'\b\d{3}[-\s]?\d{3}\b', s))
+    if m_last_pin2:
+        last_m2 = m_last_pin2[-1]
+        tail2 = s[last_m2.end():]
+        if not re.search(r'\b(?:Taluk|District|Hobli|Post|Village|Grama|Halli|Bengaluru|Bangalore|Kolar|Chikkaballapura)\b', tail2, re.I):
+            s = s[:last_m2.end()]
     return s.strip(' ,.-:;')
+
+
+def is_address_text(s: str) -> bool:
+    """Returns True if the text represents an address, location, or landmark rather than a person's name."""
+    if not s or not str(s).strip():
+        return False
+    s_clean = str(s).strip()
+    if re.search(r'\b(?:S/[oO0]|W/[oO0]|D/[oO0]|C/[oO0]|Bin|Kom|Son\s+of|Wife\s+of|Daughter\s+of|Care\s+of|ಬಿನ್|ಕೋಂ|ಮಗ|ಹೆಂಡತಿ|ಪತ್ನಿ|ಮಗಳು)\b', s_clean, re.I):
+        return False
+    if re.search(r'\b(?:Aged?\s*(?:about|around)?\s*\d+|Age\s*[:\-]\s*\d+|ವಯಸ್ಸು|ಪ್ರಾಯ)\b', s_clean, re.I):
+        return False
+    addr_kw_pat = (
+        r'\b(?:Village|Grama|Gram|Dakhale|Dakhle|Palya|Halli|Koppa|Majare|Majar|'
+        r'Post|P\.O\.?|Hobli|Hobali|Taluk|Taluka|Tq\.?|District|Dist\.?|'
+        r'Colony|Layout|Nagar|Extension|Extn|Slum|Block|Sector|'
+        r'Cross|Main|Road|Street|Lane|Raste|'
+        r'Temple|Gudi|Devalaya|Dairy|School|College|Hosahalli|'
+        r'Near|Opp|Opposite|Beside|Behind|Backside|Adjacent|'
+        r'Door|Door\s*No|D\.?No|House\s*No|H\.?No|Flat|Plot|Room|Floor|'
+        r'Bengaluru|Bangalore|Kolar|Chikkaballapur|Chikkaballapura|Tumakuru|Ramanagara|'
+        r'\d{6})\b'
+    )
+    return bool(re.search(addr_kw_pat, s_clean, re.I))
 
 
 def _split_single_party(text: str, prefix: str = "") -> tuple[str, str]:
@@ -2610,11 +2666,17 @@ def split_party_name_and_address(text: str) -> tuple[str, str]:
         num = int(m.group(1))
         if num > 250:
             continue
+        # Check text after match to ensure it's not an address line (e.g. '5. Thellohalli Village')
+        after_match = cleaned[m.end():m.end() + 60].strip()
+        if is_address_text(after_match):
+            continue
         if last_num is None:
+            if num > 2:
+                continue
             filtered_matches.append((m, num))
             last_num = num
         else:
-            if num > last_num and num <= last_num + 5:
+            if num > last_num and num <= last_num + 2:
                 filtered_matches.append((m, num))
                 last_num = num
 
@@ -2787,6 +2849,15 @@ TALUK_ALIASES = {
     "bengaluru north": "Bengaluru North",
     "bangalore east": "Bengaluru East",
     "bengaluru east": "Bengaluru East",
+    "devanahlli": "Devanahalli",
+    "devanahalli": "Devanahalli",
+    "chikkaballapur": "Chikkaballapura",
+    "chikkaballapura": "Chikkaballapura",
+    "doddaballapur": "Doddaballapura",
+    "doddaballapura": "Doddaballapura",
+    "nelamangala": "Nelamangala",
+    "hosakote": "Hosakote",
+    "anekal": "Anekal",
 }
 
 def clean_party_token_py(val: str) -> str:
@@ -2804,10 +2875,134 @@ def clean_party_address_py(addr: str) -> str:
     s = re.sub(r"(?i)\b(?:adesha(?:da)?\s*(?:prati|patra|patre|pata|pati)|order\s*sheet|daily\s*order)\b.*", "", s)
     s = re.sub(r"(?i)-?\s*(?:virud+ha|eirudda|dirudda|vs\.?)\s*-?.*", "", s)
     s = re.sub(r"(?i)\b(?:Shalluku|Thalluku|Talluku|Shalluk|Thaluk|Saluk)\b", "Taluk", s)
+    # Clean leading OCR noise numbers before address keywords (e.g. '5. Thellohalli Village' -> 'Thellohalli Village')
+    s = re.sub(r'(?:^|,\s*)(?:[1-9]\d{0,1}\s*[\.\)]\s*)(?=[A-Za-z\s]+(?:Village|Grama|Halli|Post|Hobli|Taluk|District|Colony|Layout|Road|Street|Near|Opp))', r', ', s, flags=re.I)
     s = re.sub(r"\n+", ", ", s)
     s = re.sub(r",\s*,+", ", ", s)
     s = re.sub(r"\s+", " ", s)
     return s.strip(" ,.-:;")
+
+def _extract_location_tuple(addr_candidate: str, full_str: str = "", case_defaults: dict = None) -> tuple[str, str, str, str]:
+    if case_defaults is None:
+        case_defaults = {}
+    default_dist = case_defaults.get("district", "")
+    default_taluk = case_defaults.get("taluk", "")
+    default_hobli = case_defaults.get("hobli", "")
+    default_village = case_defaults.get("village", "")
+
+    district = ""
+    taluk = ""
+    hobli = ""
+    village = ""
+
+    # 1. District Extraction
+    for cand_k in sorted(DISTRICT_ALIASES.keys(), key=len, reverse=True):
+        if re.search(rf"\b{re.escape(cand_k)}\b", addr_candidate, re.IGNORECASE) or (full_str and re.search(rf"\b{re.escape(cand_k)}\b", full_str, re.IGNORECASE)):
+            district = DISTRICT_ALIASES[cand_k]
+            break
+    if not district:
+        for d in sorted(GEO.keys(), key=len, reverse=True):
+            if re.search(rf"\b{re.escape(d)}\b", addr_candidate, re.IGNORECASE) or (full_str and re.search(rf"\b{re.escape(d)}\b", full_str, re.IGNORECASE)):
+                district = d
+                break
+    if not district and default_dist:
+        district = default_dist
+
+    # Postal code mapping for Bengaluru
+    pin_m = re.search(r'\bBengaluru\s*-\s*(\d{2})\b', addr_candidate, re.I)
+    if pin_m:
+        district = "Bengaluru"
+        addr_candidate = addr_candidate.replace(pin_m.group(0), f"Bengaluru-5600{pin_m.group(1)}")
+
+    # 2. Taluk Extraction
+    m_tq = re.search(r"([A-Za-z\s]+?)\s+(?:Taluk|Taluka|Tq)\b", addr_candidate, re.IGNORECASE)
+    if m_tq:
+        cand_tq = clean_party_token_py(m_tq.group(1))
+        cand_low = cand_tq.lower()
+        taluk = TALUK_ALIASES.get(cand_low, cand_tq)
+    elif district and district in GEO:
+        for cand_k, alias_val in TALUK_ALIASES.items():
+            if re.search(rf"\b{re.escape(cand_k)}\b", addr_candidate, re.IGNORECASE) or (full_str and re.search(rf"\b{re.escape(cand_k)}\b", full_str, re.IGNORECASE)):
+                taluk = alias_val
+                break
+        if not taluk:
+            for t_name in GEO[district]:
+                if re.search(rf"\b{re.escape(t_name)}\b", addr_candidate, re.IGNORECASE) or (full_str and re.search(rf"\b{re.escape(t_name)}\b", full_str, re.IGNORECASE)):
+                    taluk = t_name
+                    break
+    if not taluk and district and district in GEO and district in GEO[district]:
+        taluk = district
+    elif not taluk and default_taluk and default_dist == district:
+        taluk = default_taluk
+
+    if taluk and taluk.lower() in TALUK_ALIASES:
+        taluk = TALUK_ALIASES[taluk.lower()]
+
+    # 3. Hobli Extraction
+    m_hob = re.search(r"([A-Za-z\s]+?)\s+(?:Hobli)\b", addr_candidate, re.IGNORECASE)
+    if m_hob:
+        hobli = clean_party_token_py(m_hob.group(1))
+    elif district and taluk and district in GEO and taluk in GEO[district]:
+        for h_name in GEO[district][taluk].get("h", []):
+            if re.search(rf"\b{re.escape(h_name)}\b", addr_candidate, re.IGNORECASE):
+                hobli = h_name
+                break
+    if not hobli and default_hobli and default_dist == district and default_taluk == taluk:
+        hobli = default_hobli
+
+    # 4. Village / Locality Extraction
+    m_vil = re.search(r"(?:(?:r/o|c/o|at|residing\s+at)\s+)?([A-Za-z\s]+?)\s+(?:Village|Grama|Dakhale|Dakhle|Palya|Halli)\b", addr_candidate, re.IGNORECASE)
+    if m_vil:
+        village = clean_party_token_py(m_vil.group(1))
+
+    bengaluru_locs = [
+        'Annasandra Palya Extn', 'Annasandra Palya Main Road', 'Annasandra Palya', 'Vinayak Nagar', 'HAL 3rd Stage', 'HAL',
+        'L.B. Shastri Nagar', 'Vimanapura Post', 'Vimanapura', 'Vibhuthipura Slum', 'Vibhuthipura', 'Marathhalli Post', 'Marathhalli',
+        'Ramesh Nagar', 'Syed Block', 'Ramaiah Reddy Colony', 'Ramaiah Reddy Lane',
+        'Basava Nagar', 'Veerabadra Nagar', 'Shivashakthi Colony', 'Ambedkar Slum'
+    ]
+    if district in ("Bengaluru", "Bengaluru Urban"):
+        for loc in bengaluru_locs:
+            if re.search(rf"\b{re.escape(loc)}\b", addr_candidate, re.I):
+                village = loc
+                if not taluk:
+                    taluk = "Bengaluru East"
+                break
+
+    if not village:
+        parts = [clean_party_token_py(p) for p in re.split(r"[,;\n]+", addr_candidate) if clean_party_token_py(p)]
+        for p in parts:
+            if re.match(r"(?i)^(?:No\.?|Plot|Flat|Door|Near|Opp|Beside|Behind|\d+)", p):
+                continue
+            if district and (p.lower() == district.lower() or p.lower() in district.lower()):
+                continue
+            if taluk and (p.lower() == taluk.lower() or p.lower() in taluk.lower()):
+                continue
+            if any(p.lower() == al.lower() for al in DISTRICT_ALIASES):
+                continue
+            if re.search(r"\b\d{6}\b", p):
+                continue
+            if len(p.split()) <= 3:
+                village = p
+                break
+
+    if not village and district and taluk and district in GEO and taluk in GEO[district]:
+        for v_name in GEO[district][taluk].get("v", []):
+            if re.search(rf"\b{re.escape(v_name)}\b", addr_candidate, re.IGNORECASE):
+                village = v_name
+                break
+
+    if not village and taluk:
+        if district and district in GEO and taluk in GEO[district] and taluk in GEO[district][taluk].get("v", []):
+            village = taluk
+        elif re.search(rf"\b{re.escape(taluk)}\b", addr_candidate, re.IGNORECASE):
+            village = taluk
+
+    if not village and default_village and default_dist == district and default_taluk == taluk:
+        village = default_village
+
+    return district, taluk, hobli, village
+
 
 def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=None) -> list[dict]:
     """
@@ -2849,11 +3044,11 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
         is_new = False
         if pfx_pat.match(line):
             after_pfx = pfx_pat.sub("", line).strip()
-            if not addr_start_pat.match(after_pfx):
+            if not addr_start_pat.match(after_pfx) and not is_address_text(after_pfx) and not is_address_text(line):
                 is_new = True
-        elif re.match(r'^(?:Smt\.?|Sri\.?|Shri\.?)\s+[A-Z][a-zA-Z\s]+', line, re.I) and not addr_start_pat.match(line):
+        elif re.match(r'^(?:Smt\.?|Sri\.?|Shri\.?)\s+[A-Z][a-zA-Z\s]+', line, re.I) and not addr_start_pat.match(line) and not is_address_text(line):
             is_new = True
-        elif known_name_pat.match(line):
+        elif known_name_pat.match(line) and not is_address_text(line):
             is_new = True
 
         if is_new and curr_b:
@@ -3005,116 +3200,26 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
         name = re.sub(r'^\d{2,4}\s+', '', name) # strip OCR error numbers like 714, 7780
         name = clean_party_token_py(name)
 
-        # Skip trivial or empty names
-        if not name or len(name) < 2 or name.lower() in ("p=", "saka", "i", "aro", "vaste"):
+        # Check if name itself is actually an address line (e.g. 'Thellohalli Village', 'Ambedkar Colony')
+        if is_address_text(name):
+            if results:
+                prev_party = results[-1]
+                extra_addr = f"{name}, {addr_candidate}".strip(" ,.-:;")
+                prev_party["address"] = clean_party_address_py(f"{prev_party['address']}, {extra_addr}")
+                # Re-evaluate location fields for previous party
+                re_dist, re_tq, re_hob, re_vil = _extract_location_tuple(prev_party["address"], full_str="", case_defaults=case_defaults)
+                if re_dist and not prev_party.get("district"): prev_party["district"] = re_dist
+                if re_tq and not prev_party.get("taluk"): prev_party["taluk"] = re_tq
+                if re_hob and not prev_party.get("hobli"): prev_party["hobli"] = re_hob
+                if re_vil and not prev_party.get("village"): prev_party["village"] = re_vil
+            continue
+
+        # Skip trivial or empty names or procedural garbage
+        if not name or len(name) < 2 or name.lower() in ("p=", "saka", "i", "aro", "vaste") or is_procedural_or_garbage_party(name):
             continue
 
         addr_candidate = clean_party_address_py(addr_candidate)
-
-        # 6. District Extraction
-        for cand_k in sorted(DISTRICT_ALIASES.keys(), key=len, reverse=True):
-            if re.search(rf"\b{re.escape(cand_k)}\b", addr_candidate, re.IGNORECASE) or re.search(rf"\b{re.escape(cand_k)}\b", full_str, re.IGNORECASE):
-                district = DISTRICT_ALIASES[cand_k]
-                break
-        if not district:
-            for d in sorted(GEO.keys(), key=len, reverse=True):
-                if re.search(rf"\b{re.escape(d)}\b", addr_candidate, re.IGNORECASE) or re.search(rf"\b{re.escape(d)}\b", full_str, re.IGNORECASE):
-                    district = d
-                    break
-        if not district and default_dist:
-            district = default_dist
-
-        # Postal code mapping for Bengaluru
-        pin_m = re.search(r'\bBengaluru\s*-\s*(\d{2})\b', addr_candidate, re.I)
-        if pin_m:
-            district = "Bengaluru"
-            addr_candidate = addr_candidate.replace(pin_m.group(0), f"Bengaluru-5600{pin_m.group(1)}")
-
-        # 7. Taluk Extraction
-        m_tq = re.search(r"([A-Za-z\s]+?)\s+(?:Taluk|Taluka|Tq)\b", addr_candidate, re.IGNORECASE)
-        if m_tq:
-            cand_tq = clean_party_token_py(m_tq.group(1))
-            cand_low = cand_tq.lower()
-            taluk = TALUK_ALIASES.get(cand_low, cand_tq)
-        elif district and district in GEO:
-            for cand_k, alias_val in TALUK_ALIASES.items():
-                if re.search(rf"\b{re.escape(cand_k)}\b", addr_candidate, re.IGNORECASE) or re.search(rf"\b{re.escape(cand_k)}\b", full_str, re.IGNORECASE):
-                    taluk = alias_val
-                    break
-            if not taluk:
-                for t_name in GEO[district]:
-                    if re.search(rf"\b{re.escape(t_name)}\b", addr_candidate, re.IGNORECASE) or re.search(rf"\b{re.escape(t_name)}\b", full_str, re.IGNORECASE):
-                        taluk = t_name
-                        break
-        if not taluk and district and district in GEO and district in GEO[district]:
-            taluk = district
-        elif not taluk and default_taluk and default_dist == district:
-            taluk = default_taluk
-
-        # 8. Hobli Extraction
-        m_hob = re.search(r"([A-Za-z\s]+?)\s+(?:Hobli)\b", addr_candidate, re.IGNORECASE)
-        if m_hob:
-            hobli = clean_party_token_py(m_hob.group(1))
-        elif district and taluk and district in GEO and taluk in GEO[district]:
-            for h_name in GEO[district][taluk].get("h", []):
-                if re.search(rf"\b{re.escape(h_name)}\b", addr_candidate, re.IGNORECASE):
-                    hobli = h_name
-                    break
-        if not hobli and default_hobli and default_dist == district and default_taluk == taluk:
-            hobli = default_hobli
-
-        # 9. Village / Locality Extraction
-        m_vil = re.search(r"(?:(?:r/o|c/o|at|residing\s+at)\s+)?([A-Za-z\s]+?)\s+(?:Village|Grama|Dakhale|Dakhle|Palya|Halli)\b", addr_candidate, re.IGNORECASE)
-        if m_vil:
-            village = clean_party_token_py(m_vil.group(1))
-
-        # Check explicit Bengaluru localities
-        bengaluru_locs = [
-            'Annasandra Palya Extn', 'Annasandra Palya Main Road', 'Annasandra Palya', 'Vinayak Nagar', 'HAL 3rd Stage', 'HAL',
-            'L.B. Shastri Nagar', 'Vimanapura Post', 'Vimanapura', 'Vibhuthipura Slum', 'Vibhuthipura', 'Marathhalli Post', 'Marathhalli',
-            'Ramesh Nagar', 'Syed Block', 'Ramaiah Reddy Colony', 'Ramaiah Reddy Lane',
-            'Basava Nagar', 'Veerabadra Nagar', 'Shivashakthi Colony', 'Ambedkar Slum'
-        ]
-        if district in ("Bengaluru", "Bengaluru Urban"):
-            for loc in bengaluru_locs:
-                if re.search(rf"\b{re.escape(loc)}\b", addr_candidate, re.I):
-                    village = loc
-                    if not taluk:
-                        taluk = "Bengaluru East"
-                    break
-
-        # Check explicit locality segments
-        if not village:
-            parts = [clean_party_token_py(p) for p in re.split(r"[,;\n]+", addr_candidate) if clean_party_token_py(p)]
-            for p in parts:
-                if re.match(r"(?i)^(?:No\.?|Plot|Flat|Door|Near|Opp|Beside|Behind|\d+)", p):
-                    continue
-                if district and (p.lower() == district.lower() or p.lower() in district.lower()):
-                    continue
-                if taluk and (p.lower() == taluk.lower() or p.lower() in taluk.lower()):
-                    continue
-                if any(p.lower() == al.lower() for al in DISTRICT_ALIASES):
-                    continue
-                if re.search(r"\b\d{6}\b", p):
-                    continue
-                if len(p.split()) <= 3:
-                    village = p
-                    break
-
-        if not village and district and taluk and district in GEO and taluk in GEO[district]:
-            for v_name in GEO[district][taluk].get("v", []):
-                if re.search(rf"\b{re.escape(v_name)}\b", addr_candidate, re.IGNORECASE):
-                    village = v_name
-                    break
-
-        if not village and taluk:
-            if district and district in GEO and taluk in GEO[district] and taluk in GEO[district][taluk].get("v", []):
-                village = taluk
-            elif re.search(rf"\b{re.escape(taluk)}\b", addr_candidate, re.IGNORECASE):
-                village = taluk
-
-        if not village and default_village and default_dist == district and default_taluk == taluk:
-            village = default_village
+        district, taluk, hobli, village = _extract_location_tuple(addr_candidate, full_str=full_str, case_defaults=case_defaults)
 
         if party_type == "pet" and "tahsildar" in name.lower() and taluk.lower() == "anekal":
             village = "Anekal"
@@ -4598,7 +4703,11 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
                     seen_names = {str(r.get("name", "")).strip().lower() for r in curr_resps if r.get("name")}
                     for r in v:
                         r_name = str(r.get("name", "")).strip().lower()
+                        if not r_name or len(r_name) < 3 or is_procedural_or_garbage_party(r_name) or is_address_text(r_name):
+                            continue
                         if r_name and r_name not in seen_names:
+                            if curr_resps and (not r.get("relationship") and not r.get("age") and not r.get("relativeName") and "tahsildar" not in r_name):
+                                continue
                             seen_names.add(r_name)
                             curr_resps.append(r)
                 elif k == "applicants_data":
@@ -4606,7 +4715,11 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
                     seen_names = {str(a.get("name", "")).strip().lower() for a in curr_apps if a.get("name")}
                     for a in v:
                         a_name = str(a.get("name", "")).strip().lower()
+                        if not a_name or len(a_name) < 3 or is_procedural_or_garbage_party(a_name) or is_address_text(a_name):
+                            continue
                         if a_name and a_name not in seen_names:
+                            if curr_apps and (not a.get("relationship") and not a.get("age") and not a.get("relativeName")):
+                                continue
                             seen_names.add(a_name)
                             curr_apps.append(a)
                 elif k in ("survey_no", "ward_no", "village", "taluk", "hobli", "court", "case_type") and v and not target.get(k):
