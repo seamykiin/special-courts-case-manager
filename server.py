@@ -265,10 +265,10 @@ def find_case_pdf(case_no: str, year: str = "") -> tuple[str | None, int]:
     if cwd_str not in search_dirs:
         search_dirs.append(cwd_str)
     
-    # Also search user upload directory and system temp folder
-    upl_dir = "/Users/jalaj/.gemini/antigravity/brain/aa0099e3-4402-44f8-822f-4b72eda7d332/.user_uploaded"
-    if os.path.exists(upl_dir) and upl_dir not in search_dirs:
-        search_dirs.append(upl_dir)
+    # Also search application directory and system temp folder
+    app_dir_str = str(get_app_dir())
+    if app_dir_str not in search_dirs:
+        search_dirs.append(app_dir_str)
     sys_tmp = tempfile.gettempdir()
     if sys_tmp not in search_dirs:
         search_dirs.append(sys_tmp)
@@ -333,6 +333,17 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
     def handle(self):
         try:
             super().handle()
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            pass
+        except Exception as e:
+            if "10053" in str(e) or "10054" in str(e):
+                pass
+            else:
+                raise
+
+    def finish(self):
+        try:
+            super().finish()
         except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
             pass
         except Exception as e:
@@ -1387,10 +1398,19 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"error": str(err), "logs": get_recent_logs(20)}).encode("utf-8"))
 
+class QuietThreadingServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+
+    def handle_error(self, request, client_address):
+        ex_type, ex_val, _ = sys.exc_info()
+        if ex_type and (issubclass(ex_type, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)) or "10053" in str(ex_val) or "10054" in str(ex_val)):
+            return
+        super().handle_error(request, client_address)
+
 def main():
     global ACTIVE_PORT
     init_db()
-    ThreadingHTTPServer.allow_reuse_address = True
+    QuietThreadingServer.allow_reuse_address = True
     preferred_port = PORT
     ports_to_try = [preferred_port]
     for p in (8000, 8001, 8080):
@@ -1402,12 +1422,12 @@ def main():
     for p in ports_to_try:
         try:
             # Bind all interfaces so Docker port publishing and LAN clients can reach the server.
-            server = ThreadingHTTPServer(("0.0.0.0", p), CaseRequestHandler)
+            server = QuietThreadingServer(("0.0.0.0", p), CaseRequestHandler)
             active_port = p
             break
         except OSError:
             try:
-                server = ThreadingHTTPServer(("0.0.0.0", p), CaseRequestHandler)
+                server = QuietThreadingServer(("0.0.0.0", p), CaseRequestHandler)
                 active_port = p
                 break
             except OSError:
@@ -1415,9 +1435,9 @@ def main():
 
     if server is None:
         try:
-            server = ThreadingHTTPServer(("127.0.0.1", 0), CaseRequestHandler)
+            server = QuietThreadingServer(("127.0.0.1", 0), CaseRequestHandler)
         except OSError:
-            server = ThreadingHTTPServer(("0.0.0.0", 0), CaseRequestHandler)
+            server = QuietThreadingServer(("0.0.0.0", 0), CaseRequestHandler)
         active_port = server.server_address[1]
 
     ACTIVE_PORT = active_port

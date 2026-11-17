@@ -47271,6 +47271,14 @@ function reconcileWorkflowValue(existing, value) {
           img.loading = p === 1 ? "eager" : "lazy";
           img.style.cssText = "display:block;width:100%;height:auto;user-select:none;";
           img.src = `${base}/api/render-page?path=${encodeURIComponent(activePdfPath)}&page=${p}&max_dim=1800&t=${Date.now()}`;
+          img.onerror = () => {
+            if (p === 1 && frameEl) {
+              console.warn("Rasterization failed or unavailable; falling back to native PDF viewer.");
+              scrollContainer.style.display = "none";
+              frameEl.style.display = "block";
+              frameEl.src = `${base}/api/pdf-raw?path=${encodeURIComponent(activePdfPath)}`;
+            }
+          };
 
           card.appendChild(header);
           card.appendChild(img);

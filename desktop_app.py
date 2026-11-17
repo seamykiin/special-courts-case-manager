@@ -72,6 +72,8 @@ if qt_plugins_dir.exists():
 
 # Ensure Windows PATH and DLL search directories include BUNDLE_DIR, APP_DIR, and native runtimes
 if sys.platform == "win32" or "win" in sys.platform:
+    # Disable Chromium GPU compositing flaws on Windows Intel/AMD integrated GPUs to prevent black rectangles and flicker
+    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-gpu-compositing --no-sandbox"
     extra_paths = [
         str(APP_DIR),
         str(APP_DIR / "platforms"),
@@ -153,7 +155,8 @@ def launch_pyqt_window(url: str, title: str = "LGC Case & Cause List Register", 
         window = QMainWindow()
         window.setWindowTitle(title)
         window.resize(width, height)
-        window.setMinimumSize(1024, 700)
+        # Responsive minimum size to prevent window clipping on Windows 1366x768 and 125%/150% DPI displays
+        window.setMinimumSize(960, 560)
 
         # Configure modern web engine capabilities
         profile = QWebEngineProfile.defaultProfile()
@@ -189,7 +192,7 @@ def launch_pywebview_window(url: str, title: str = "LGC Case & Cause List Regist
             url=url,
             width=width,
             height=height,
-            min_size=(1024, 700),
+            min_size=(960, 560),
             confirm_close=False,
             text_select=True
         )
@@ -200,16 +203,20 @@ def launch_pywebview_window(url: str, title: str = "LGC Case & Cause List Regist
         return False
 
 def launch_browser_app_window(url: str, width: int = 1440, height: int = 920) -> bool:
-    """Tier 3: Standalone App Window via Microsoft Edge or Chrome (No URL bar, dedicated desktop window)."""
+    """Dedicated desktop app window via Microsoft Edge or Chrome (Hardware-accelerated DirectComposition, zero GPU glitches)."""
     candidates = [
         # Edge candidates (installed on 100% of Windows 10/11)
         os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
         os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
         os.path.expandvars(r"%LocalAppData%\Microsoft\Edge\Application\msedge.exe"),
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
         # Chrome candidates
         os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
         os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
         os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
     ]
 
     # Try Windows registry
@@ -220,7 +227,7 @@ def launch_browser_app_window(url: str, width: int = 1440, height: int = 920) ->
                 try:
                     with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, rf"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{exe}") as key:
                         val, _ = winreg.QueryValueEx(key, "")
-                        if val and os.path.exists(val):
+                        if val and os.path.exists(val) and val not in candidates:
                             candidates.insert(0, val)
                 except Exception:
                     pass
@@ -234,7 +241,7 @@ def launch_browser_app_window(url: str, width: int = 1440, height: int = 920) ->
             break
 
     if not browser_path:
-        for name in ("msedge", "chrome"):
+        for name in ("msedge", "chrome", "google-chrome"):
             found = shutil.which(name)
             if found:
                 browser_path = found
@@ -246,8 +253,10 @@ def launch_browser_app_window(url: str, width: int = 1440, height: int = 920) ->
                 browser_path,
                 f"--app={url}",
                 f"--window-size={width},{height}",
+                "--start-maximized",
                 "--disable-features=Translate",
                 "--no-first-run",
+                "--no-default-browser-check",
             ]
             print(f"Launching standalone app window via: {browser_path}", file=sys.stderr)
             proc = subprocess.Popen(app_args)
@@ -260,6 +269,32 @@ def launch_browser_app_window(url: str, width: int = 1440, height: int = 920) ->
     return False
 
 def main():
+    # 0. Single-Instance Mutual Exclusion Check:
+    # If the app server is already running on port 8000 (or 8001), do NOT spawn a duplicate server thread.
+    # Open/focus the native window on the active instance and exit this process cleanly.
+    for existing_port in (8000, 8001, 8080):
+        if check_server_health(existing_port, timeout=0.35):
+            existing_url = f"http://127.0.0.1:{existing_port}"
+            print(f"Existing instance detected at {existing_url}. Focusing desktop window...", file=sys.stderr)
+            is_win = sys.platform == "win32" or "win" in sys.platform
+            if is_win:
+                if launch_browser_app_window(existing_url):
+                    return
+                if launch_pyqt_window(existing_url):
+                    return
+                if launch_pywebview_window(existing_url):
+                    return
+            else:
+                if launch_pyqt_window(existing_url):
+                    return
+                if launch_pywebview_window(existing_url):
+                    return
+                if launch_browser_app_window(existing_url):
+                    return
+            import webbrowser
+            webbrowser.open(existing_url)
+            return
+
     # 1. Start server in daemon thread
     server_thread = threading.Thread(target=run_server_thread, daemon=True)
     server_thread.start()
@@ -279,20 +314,35 @@ def main():
     print(f"Server verified active at {url}", file=sys.stderr)
 
     # 4. Launch Standalone Native Desktop Window
-    # Tier 1: PyQt6-WebEngine (100% self-contained embedded Chromium desktop window)
-    print("Attempting Tier 1 (PyQt6-WebEngine)...", file=sys.stderr)
-    if launch_pyqt_window(url):
-        return
+    is_windows = sys.platform == "win32" or "win" in sys.platform
 
-    # Tier 2: pywebview (Edge WebView2 / WinForms native desktop window)
-    print("Attempting Tier 2 (pywebview)...", file=sys.stderr)
-    if launch_pywebview_window(url):
-        return
+    if is_windows:
+        # On Windows, Edge Dedicated App Mode provides native DirectComposition hardware acceleration,
+        # zero GPU compositing flicker, native ClearType antialiasing, and built-in PDF rendering.
+        print("Attempting Tier 1 on Windows (Dedicated Edge/Chrome App Mode)...", file=sys.stderr)
+        if launch_browser_app_window(url):
+            return
 
-    # Tier 3: Standalone Edge/Chrome App Window (Clean desktop window without URL bar or tabs)
-    print("Attempting Tier 3 (Edge/Chrome App Mode)...", file=sys.stderr)
-    if launch_browser_app_window(url):
-        return
+        print("Attempting Tier 2 (PyQt6-WebEngine)...", file=sys.stderr)
+        if launch_pyqt_window(url):
+            return
+
+        print("Attempting Tier 3 (pywebview)...", file=sys.stderr)
+        if launch_pywebview_window(url):
+            return
+    else:
+        # On macOS/Linux: PyQt6-WebEngine -> pywebview -> browser app window
+        print("Attempting Tier 1 (PyQt6-WebEngine)...", file=sys.stderr)
+        if launch_pyqt_window(url):
+            return
+
+        print("Attempting Tier 2 (pywebview)...", file=sys.stderr)
+        if launch_pywebview_window(url):
+            return
+
+        print("Attempting Tier 3 (Edge/Chrome App Mode)...", file=sys.stderr)
+        if launch_browser_app_window(url):
+            return
 
     # Tier 4: Fallback to default browser
     print("Attempting Tier 4 (Default browser fallback)...", file=sys.stderr)
