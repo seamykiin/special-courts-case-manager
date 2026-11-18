@@ -2538,7 +2538,12 @@ def is_address_text(s: str) -> bool:
         r'Temple|Gudi|Devalaya|Dairy|School|College|Hosahalli|'
         r'Near|Opp|Opposite|Beside|Behind|Backside|Adjacent|'
         r'Door|Door\s*No|D\.?No|House\s*No|H\.?No|Flat|Plot|Room|Floor|'
-        r'Bengaluru|Bangalore|Kolar|Chikkaballapur|Chikkaballapura|Tumakuru|Ramanagara|'
+        r'Bengaluru|Bangalore|Kolar|Chikkaballapur|Chikkaballapura|Tumakuru|Tumkur|Ramanagara|'
+        r'Yadgir|Yadagiri|Kalaburagi|Gulbarga|Raichur|Bidar|Belagavi|Belgaum|Ballari|Bellary|'
+        r'Vijayapura|Bijapur|Bagalkote|Bagalkot|Dharwad|Hubballi|Hubli|Gadag|Haveri|Koppal|'
+        r'Uttara\s*Kannada|Karwar|Dakshina\s*Kannada|Mangaluru|Mangalore|Udupi|Shivamogga|Shimoga|'
+        r'Chikkamagaluru|Chikmagalur|Davangere|Davanagere|Chitradurga|Mandya|Mysuru|Mysore|'
+        r'Hassan|Kodagu|Madikeri|Chamarajanagar|'
         r'\d{6})\b'
     )
     return bool(re.search(addr_kw_pat, s_clean, re.I))
@@ -2882,6 +2887,8 @@ DISTRICT_ALIASES = {
 }
 
 TALUK_ALIASES = {
+    "yadagiri": "Yadgir",
+    "yadgir": "Yadgir",
     "kalaburgi": "Kalaburagi",
     "kalaburgi city": "Kalaburagi",
     "kalaburagi city": "Kalaburagi",
@@ -2907,8 +2914,13 @@ def clean_party_token_py(val: str) -> str:
     if not val:
         return ""
     s = re.sub(r"[\u200c\u200d\ufeff]", "", str(val))
-    s = re.sub(r"[,;:\s]+", " ", s)
+    # If Smt / Sri / Shri / Kumari / etc is in name, strip any stray OCR noise preceding it (e.g. '1 Oja : | Smt.')
+    s = re.sub(r'^.*?\b(Smt\.?|Sri\.?|Shri\.?|Kumari|Kum\.?|ಶ್ರೀಮತಿ|ಶ್ರೀ|ಕುಮಾರಿ)\b', r'\1', s, flags=re.I)
+    # Strip leading noise words and numbers before names: e.g. '1 Oja : |', 'Gata 2.', 'hohe 2.'
+    s = re.sub(r'^(?:[~<_\\/\*\s\(\[\-|•:;,\"\']+|[A-Za-z\u0C80-\u0CFF]{1,6}\s+)*(?:\d{1,2}|[೧-೯]\d{0,1}|A\d{1,2})[\.\)\-\:\s]+\s*', '', s, flags=re.I)
+    s = re.sub(r'[,;:\s]+', " ", s)
     s = re.sub(r"^[\s,.:;\-_/\\|~•*()\[\]]+|[\s,.:;\-_/\\|~•*()\[\]]+$", "", s)
+    s = re.sub(r'\s*[:,\-|•]+\s*[A-Za-z0-9]?$', '', s).strip()
     return s.strip()
 
 def clean_party_address_py(addr: str) -> str:
@@ -3074,7 +3086,7 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
     # Intelligent multi-criteria party splitting:
     # 1. Numbered prefixes: 1., 2., A6), A1), 4 2., [1], Al11), ~ A8), etc. (including Kannada titles and OCR noise)
     pfx_pat = re.compile(
-        r'^(?:[~<_\\/\*\s\(\[\-|•]*)(?:(?:ಇರರು|ಅರ್ಜಿದಾರರು|ಎದುರುದಾರರು|Iraru|Arjidararu|Arjidara|Edurudara|Edurudararu)\s*[:\-.]?\s*)*(?:\d+\s+)*(?:A\s*\d{1,3}|[1-9]\d{0,2}|A[lI1]\d{1,2}|AS|[A-Za-z]\d{1,3})[\.\)]\s*',
+        r'^(?:[~<_\\/\*\s\(\[\-|•:;,\"\']*(?:[A-Za-z\u0C80-\u0CFF]{1,6}\s+)?)(?:(?:ಇರರು|ಅರ್ಜಿದಾರರು|ಎದುರುದಾರರು|Iraru|Arjidararu|Arjidara|Edurudara|Edurudararu)\s*[:\-.]?\s*)*(?:A\s*\d{1,3}|[1-9]\d{0,2}|[೧-೯]\d{0,2}|A[lI1]\d{1,2}|AS|[A-Za-z]\d{1,3})[\.\)]\s*',
         re.I
     )
     addr_start_pat = re.compile(r'^(?:No\.?|Plot|Flat|Door|Near|Opp|Beside|Behind|\d+\s*(?:st|nd|rd|th)?\s*Cross|Bengaluru|Kalaburagi)', re.I)
@@ -3086,6 +3098,15 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
     i = 0
     while i < len(raw_lines):
         line = raw_lines[i]
+        # Ignore standalone short OCR noise lines
+        if re.match(r'^[^\w\s]+$', line) or re.match(r'^(?:Ele\s+Ka[”\"]?|೬/\s*Sa|೬/\s*ಸ|call\s+.*|cal\s+.*|ಫೆ)$', line, re.I):
+            i += 1
+            continue
+        # Normalize OCR noise prefix like '1 Oja : | Smt. Mahadevamma' -> '1. Smt. Mahadevamma'
+        line = re.sub(r'^\s*([1-9]\d{0,1})\s+[A-Za-z\u0C80-\u0CFF]{1,5}\s*[:|]+\s*(?=[A-Za-z\u0C80-\u0CFF])', r'\1. ', line)
+        # Normalize OCR noise word before digit like 'Ge 4. Smt. Shivalalita' -> '4. Smt. Shivalalita', 'Gata 2. District Vyavasthapakaru' -> '2. District Vyavasthapakaru'
+        line = re.sub(r'^(?:[~<_\\/\*\s\(\[\-|•:;,\"\']*(?:[A-Za-z\u0C80-\u0CFF]{1,6}\s+))(\d{1,2}|[೧-೯]\d{0,1}|A\d{1,2})[\.\)]\s*', r'\1. ', line)
+
         if re.match(r'^(?:[1-9]\d{0,2}|[೧-೯]\d{0,2})[\.\)]?$', line) and i + 1 < len(raw_lines):
             next_l = raw_lines[i+1]
             if not is_address_text(next_l) and not addr_start_pat.match(next_l):
@@ -3910,11 +3931,47 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
     # 6. Geography (District, Taluk, Hobli, Village)
     # Prefer property schedule block (after 'ಅರ್ಜಿ ಸಲ್ಲಿಸಿ' or near 'ಸರ್ವೆ ನಂ.') over petitioner address
     if not m_sched:
-        m_sched = re.search(r'(?:ಅರ್ಜಿ\s*ಸಲ್ಲಿಸಿ|schedule|property)[\s\S]*?(?=ಒತ್ತುವರಿ|ಅಕ್ರಮವಾಗಿ|\n\n|$)', text, re.IGNORECASE)
+        m_sched = re.search(r'(?:ಅರ್ಜಿ\s*ಸಲ್ಲಿಸಿ|schedule|property|ಆದೇಶ\s*ಪತ್ರ)[\s\S]*?(?=ಒತ್ತುವರಿ|ಅಕ್ರಮವಾಗಿ|\n\n|$)', text, re.IGNORECASE)
         if m_sched:
             sched_block = m_sched.group(0)
 
-    # Taluk
+    sched_dist, sched_taluk, sched_hobli, sched_village = "", "", "", ""
+    if sched_block:
+        m_sd = re.search(r'([A-Za-z\u0C80-\u0CFF]+)[^\S\n\r]*(?:ಜಿಲ್ಲೆ|ಜಿಲ್ಲೆಯ|District)', sched_block, re.I)
+        if m_sd:
+            cand_d = m_sd.group(1).strip()
+            for dist_name, patterns in KARNATAKA_DISTRICTS:
+                for pat in patterns:
+                    if _matches_geo(pat, cand_d):
+                        sched_dist = dist_name
+                        break
+                if sched_dist: break
+        m_st = re.search(r'([A-Za-z\u0C80-\u0CFF]+)[^\S\n\r]*(?:ತಾಲ್ಲೂಕಿನ|ತಾಲ್ಲೂಕು|ತಾಲೂಕು|Taluk|Tq\b)', sched_block, re.I)
+        if m_st:
+            cand_t = m_st.group(1).strip()
+            if len(cand_t) >= 3 and cand_t not in ("ರು", "ದ", "ರ", "ಕ್ಕೆ", "ಗೆ") and not re.search(r'(?:district|hobli|village|ಜಿಲ್ಲೆ|ಹೋಬಳಿ|ಗ್ರಾಮ)', cand_t, re.IGNORECASE):
+                sched_taluk = transliterate_kannada(cand_t)
+        m_sh = re.search(r'([A-Za-z\u0C80-\u0CFF]+)[^\S\n\r]*(?:ಹೋಬಳಿಯ|ಹೋಬಳಿ|Hobli)', sched_block, re.I)
+        if m_sh:
+            cand_h = m_sh.group(1).strip()
+            if not re.search(r'(?:district|taluk|village|ಜಿಲ್ಲೆ|ತಾಲ್ಲೂಕು|ಗ್ರಾಮ)', cand_h, re.IGNORECASE):
+                sched_hobli = transliterate_kannada(cand_h)
+        m_sv = re.search(r'([A-Za-z\u0C80-\u0CFF]+)[^\S\n\r]*(?:ಗ್ರಾಮದ|ಗ್ರಾಮ|ನಗರದ|ನಗರ|Village|Town|City)[^\S\n\r]*(?:ಸರ್ವೆ\s*ನಂ|ಸರ್ವೆ\s*Bo|ಸರ್ವೆ\s*ಸಂಖ್ಯೆ|Sy\s*No)', sched_block, re.I)
+        if m_sv:
+            cand_v = m_sv.group(1).strip()
+            if len(cand_v) >= 3:
+                sched_village = transliterate_kannada(cand_v)
+
+    if sched_taluk:
+        cleaned["taluk"] = sched_taluk
+    if sched_dist:
+        cleaned["district"] = sched_dist
+    if sched_hobli:
+        cleaned["hobli"] = sched_hobli
+    if sched_village:
+        cleaned["village"] = sched_village
+
+    # Taluk fallback
     if not cleaned.get("taluk"):
         for src in (sched_block, text):
             m_afz = re.search(r'\b(Afzalpur(?:a)?|Aphjalapur(?:a)?|Aphajalapur(?:a)?)\b|(?<![\u0C80-\u0CFFa-zA-Z0-9])ಅಫ್ಜಲಪುರ(?![\u0C80-\u0CFFa-zA-Z0-9])', src, re.IGNORECASE)
@@ -4082,10 +4139,11 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
     if dist in GEO:
         taluks = GEO[dist]
         curr_t = cleaned.get("taluk", "").lower().rstrip("u")
+        curr_t = TALUK_ALIASES.get(curr_t, curr_t).lower().rstrip("u")
         # 1. Exact taluk match pass
         matched_t = None
         for t_name in taluks:
-            if curr_t and t_name.lower().rstrip("u") == curr_t:
+            if curr_t and (t_name.lower().rstrip("u") == curr_t or TALUK_ALIASES.get(t_name.lower(), "").lower().rstrip("u") == curr_t):
                 matched_t = t_name
                 break
         # 2. Substring fallback pass (only if curr_t >= 4 chars)
@@ -4095,8 +4153,8 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
                 if curr_t and (curr_t in t_clean or t_clean in curr_t):
                     matched_t = t_name
                     break
-        # 3. Direct Kannada word scan in text against known taluks of this district
-        if not matched_t:
+        # 3. Direct Kannada word scan in text against known taluks of this district (only if no taluk detected yet)
+        if not matched_t and not sched_taluk:
             taluk_candidates = []
             k_words_t = re.findall(r'[\u0C80-\u0CFF]{3,}', text)
             for kw in k_words_t:
@@ -4150,6 +4208,8 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
                         break
 
             curr_v = cleaned.get("village", "").lower().rstrip("u").replace("th", "t").strip()
+            if curr_v in ("yadagiri", "yadgir"):
+                curr_v = "yadgir"
             matched_v = None
             if curr_v:
                 # Pass 1: Exact match first (prevents "Kandavara" from being wrongly matched to "Amani Kandavarakere")
@@ -4487,7 +4547,10 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
 
     # Step 3: Global fallback
     if not assigned_sub_stage:
-        if NOTICE_TO_RESPONDENT_REGEX.search(raw_clean_text) or NOTICE_TO_RESPONDENT_REGEX.search(text):
+        if re.search(r'\b(?:For\s+appearance\s+of\s+(?:Respondent|Accused)|appearance\s+of\s+(?:Respondent|Accused))\b', raw_clean_text, re.I):
+            assigned_sub_stage = "Appearance of Accused"
+            assigned_stage_group = "Appearance"
+        elif NOTICE_TO_RESPONDENT_REGEX.search(raw_clean_text) or NOTICE_TO_RESPONDENT_REGEX.search(text):
             assigned_sub_stage = "Notice to Respondent"
             assigned_stage_group = "Notice / Summons / Service"
         else:
@@ -4832,7 +4895,12 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
                         if a_name and a_name not in seen_names:
                             seen_names.add(a_name)
                             curr_apps.append(a)
-                elif k in ("survey_no", "ward_no", "village", "taluk", "hobli", "court", "case_type") and v and not target.get(k):
+                elif k in ("survey_no", "extent", "unit") and v:
+                    target[k] = v
+                elif k in ("village", "taluk", "hobli", "district") and v:
+                    if not target.get(k) or ext.get("survey_no"):
+                        target[k] = v
+                elif k in ("ward_no", "court", "case_type") and v and not target.get(k):
                     target[k] = v
             grouped_map[key]["pages"].append(item.get("name", ""))
             grouped_map[key]["paths"].append(item.get("path") or item.get("file_path") or "")
