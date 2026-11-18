@@ -1802,6 +1802,49 @@ def translate_party_text(text: str) -> str:
     t = re.sub(r'Galu\s*South\s*Taluk', 'Bengaluru South Taluk', t)
 
     k_phrases = [
+        # Officer Posts & Designations (English/Romanized & Kannada)
+        (r'(?i)\b(?:Paurayukta(?:ru)?|ಪೌರಾಯುಕ್ತ(?:ರು)?)\b', 'Municipal Commissioner'),
+        (r'(?i)\b(?:Hindina\s+Paurayukta(?:ru)?|ಹಿಂದಿನ\s+ಪೌರಾಯುಕ್ತ(?:ರು)?)\b', 'Ex-Municipal Commissioner'),
+        (r'(?i)\b(?:(?:Jilla|District)\s+Vyavasthapaka(?:ru)?|ಜಿಲ್ಲಾ\s+ವ್ಯವಸ್ಥಾಪಕ(?:ರು)?)\b', 'District Manager'),
+        (r'(?i)\b(?:Vyavasthapaka(?:ru)?|ವ್ಯವಸ್ಥಾಪಕ(?:ರು)?)\b', 'Manager'),
+        (r'(?i)\bKaravas[ou]+lig[a-z]*\b|ಕರವಸೂಲಿಗಾರ(?:ರು|ರ)?', 'Tax Collector'),
+        (r'(?i)\b(?:Dvatiya|Dvitiya)\s+Darje\s+Sahayaki?\s+(?:Vishaya\s+Nirvahaka(?:ru)?|ವಿಷಯ\s+ನಿರ್ವಾಹಕ(?:ರು)?)\b|ದ್ವಿತೀಯ\s+ದರ್ಜೆ\s+ಸಹಾಯಕಿ?\s+ವಿಷಯ\s+ನಿರ್ವಾಹಕ(?:ರು)?', 'Second Division Assistant (SDA) / Subject Executive'),
+        (r'(?i)\b(?:Dvatiya|Dvitiya)\s+Darje\s+Sahayaki?\b|ದ್ವಿತೀಯ\s+ದರ್ಜೆ\s+ಸಹಾಯಕಿ?', 'Second Division Assistant (SDA)'),
+        (r'(?i)\b(?:Prathama\s+Darje\s+Sahayaki?\s+(?:Vishaya\s+Nirvahaka(?:ru)?|ವಿಷಯ\s+ನಿರ್ವಾಹಕ(?:ರು)?)|Pra[\.\s]*Da[\.\s]*Sa|ಪ್ರ[\.\s]*ದ[\.\s]*ಸ)\b|ಪ್ರಥಮ\s+ದರ್ಜೆ\s+ಸಹಾಯಕಿ?\s+ವಿಷಯ\s+ನಿರ್ವಾಹಕ(?:ರು)?', 'First Division Assistant (FDA) / Subject Executive'),
+        (r'(?i)\bPrathama\s+Darje\s+Sahayaki?\b|ಪ್ರಥಮ\s+ದರ್ಜೆ\s+ಸಹಾಯಕಿ?', 'First Division Assistant (FDA)'),
+        (r'(?i)\b(?:Vishaya\s+Nirvahaka(?:ru)?|ವಿಷಯ\s+ನಿರ್ವಾಹಕ(?:ರು)?)\b', 'Subject Executive'),
+        (r'(?i)\b(?:Horaguttige\s+(?:Kampyutar|Computer)\s+Aparetar|ಹೊರಗುತ್ತಿಗೆ\s+ಕಂಪ್ಯೂಟರ್\s+ಅಪರೇಟರ್)\b', 'Outsourced Computer Operator'),
+        (r'(?i)\b(?:Sahayaka\s+Karyapalaka\s+Engineer|A\.E\.E\.|ಸಹಾಯಕ\s+ಕಾರ್ಯಪಾಲಕ\s+ಇಂಜಿನಿಯರ್)\b|\bAEE\b', 'Assistant Executive Engineer (AEE)'),
+        (r'(?i)\b(?:Karyapalaka\s+Engineer|E\.E\.|ಕಾರ್ಯಪಾಲಕ\s+ಇಂಜಿನಿಯರ್)\b|\bEE\b', 'Executive Engineer (EE)'),
+        (r'(?i)\b(?:Kiriya\s+Abhiyantara(?:ru)?|ಕಿರಿಯ\s+ಅಭಿಯಂತರ(?:ರು)?)\b', 'Junior Engineer (JE)'),
+        (r'(?i)\b(?:Sahayaka\s+Abhiyantara(?:ru)?|ಸಹಾಯಕ\s+ಅಭಿಯಂತರ(?:ರು)?)\b', 'Assistant Engineer (AE)'),
+        (r'(?i)\b(?:Kandaya\s+Adhikari|ಕಂದಾಯ\s+ಅಧಿಕಾರಿ)\b', 'Revenue Officer'),
+        (r'(?i)\b(?:Kandaya\s+Nirikshaka(?:ru)?|ಕಂದಾಯ\s+ನಿರೀಕ್ಷಕ(?:ರು)?)\b', 'Revenue Inspector'),
+        (r'(?i)\b(?:Grama\s+Lekkiga(?:ru)?|ಗ್ರಾಮ\s+ಲೆಕ್ಕಿಗ(?:ರು)?)\b', 'Village Accountant'),
+        (r'(?i)\b(?:Tahashilda[mr]|Tahasilda[mr]|ತಹ[ಶಸ]ೀಲ್ದಾ[ರರ್][\u200c\u200d]?)\b', 'Tahsildar'),
+        (r'(?i)\b(?:Holis\s+Adhikshaka(?:ru)?|ಪೊಲೀಸ್\s+ಅಧೀಕ್ಷಕ(?:ರು)?)\b', 'Superintendent of Police'),
+        (r'(?i)\b(?:Arakshaka\s+Thane|ಪೊಲೀಸ್\s+ಠಾಣೆ)\b', 'Police Station'),
+        (r'(?i)\b(?:Jagruta\s+Dala|ಜಾಗೃತ\s+ದಳ)\b', 'Vigilance Wing'),
+        (r'(?i)\b(?:Prastuta\s+Karya\s*[\-–]?\s*Nirvahisuttiruva\s+Sthala|ಪ್ರಸ್ತುತ\s+ಕಾರ್ಯ\s*ನಿರ್ವಹಿಸುತ್ತಿರುವ\s+ಸ್ಥಳ)[\s:\-]*\b', 'Present Working Place: '),
+        (r'(?i)\b(?:Karyalaya|ಕಾರ್ಯಾಲಯ)\b', 'Office'),
+        (r'(?i)\b(?:Nagarasabhe?|ನಗರಸಭೆ)\b', 'City Municipal Council (CMC)'),
+        (r'(?i)\b(?:Purasabhe?|ಪುರಸಭೆ)\b', 'Town Municipal Council (TMC)'),
+        (r'(?i)\b(?:Pattana\s+Panchayati?|ಪಟ್ಟಣ\s+ಪಂಚಾಯಿತಿ?)\b', 'Town Panchayat'),
+        (r'(?i)\b(?:Grama\s+Panchayati?|ಗ್ರಾಮ\s+ಪಂಚಾಯಿತಿ?)\b', 'Gram Panchayat'),
+        (r'(?i)\b(?:Lokopayogi\s+Ilakhe(?:\s+Upa[\-–]Vibhaga)?|ಲೋಕೋಪಯೋಗಿ\s+ಇಲಾಖೆ(?:\s+ಉಪ[\-–]ವಿಭಾಗ)?)\b', 'Public Works Department (PWD)'),
+        (r'(?i)\b(?:Kanataka|Karnataka)\s+Ahara\s+(?:and|mattu)\s+Nagarika\s+Sarabaraju\b|ಕರ್ನಾಟಕ\s+ಆಹಾರ\s+ಮತ್ತು\s+ನಾಗರಿಕ\s+ಸರಬರಾಜು', 'Karnataka Food and Civil Supplies'),
+        (r'(?i)\b(?:Tava\s+Nigama\s+Niyami(?:ta)?|Nigama\s+Niyamita|ನಿಗಮ\s+ನಿಯಮಿತ)\b', 'Corporation Ltd.'),
+        (r'(?i)\bBengaluru\s+Abhivr?u\s*Ddhi\s+Pradhikara\b|ಬೆಂಗಳೂರು\s+ಅಭಿವೃದ್ಧಿ\s+ಪ್ರಾಧಿಕಾರ', 'Bangalore Development Authority (BDA)'),
+        (r'(?i)\bYadagiri\b', 'Yadgir'),
+        (r'(?i)\bChittapura\b', 'Chittapur'),
+        (r'(?i)\bSurupura\b', 'Shorapur'),
+        (r'(?i)\bShahapura\b', 'Shahapur'),
+        (r'(?i)\bGurumithakal\b', 'Gurmitkal'),
+        (r'(?i)\bRayachuru\b', 'Raichur'),
+        (r'(?i)\bHaidarabada\b', 'Hyderabad'),
+        (r'(?i)\bSteshan\b', 'Station'),
+        (r'(?i)\bAmbedkara\b', 'Ambedkar'),
+        (r'(?i)\bVakila(?:ru|ra)?\b|ವಕೀಲ(?:ರು|ರ)?', 'Advocate'),
         (r'(?i)(?:ಕಾರ್ಯ\s*ನಿರ್ವಾಹಕ|ಕಾರ್ಯನಿರ್ವಾಹಕ)\s*ಅಭಿಯಂತರರು?', 'Executive Engineer'),
         (r'(?i)ಮುಖ್ಯ\s*ಅಭಿಯಂತರರು?', 'Chief Engineer'),
         (r'(?i)ಅಧೀಕ್ಷಕ\s*ಅಭಿಯಂತರರು?', 'Superintending Engineer'),
@@ -3119,16 +3162,18 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
     lines = merged_lines
     raw_blocks = []
     curr_b = []
+    has_numbered_parties = any(pfx_pat.match(l) for l in lines)
     for line in lines:
         is_new = False
         if pfx_pat.match(line):
             after_pfx = pfx_pat.sub("", line).strip()
             if not addr_start_pat.match(after_pfx) and not is_address_text(after_pfx) and not is_address_text(line):
                 is_new = True
-        elif re.match(r'^(?:Smt\.?|Sri\.?|Shri\.?)\s+[A-Z][a-zA-Z\s]+', line, re.I) and not addr_start_pat.match(line) and not is_address_text(line):
-            is_new = True
-        elif known_name_pat.match(line) and not is_address_text(line):
-            is_new = True
+        elif not has_numbered_parties:
+            if re.match(r'^(?:Smt\.?|Sri\.?|Shri\.?)\s+[A-Z][a-zA-Z\s]+', line, re.I) and not addr_start_pat.match(line) and not is_address_text(line):
+                is_new = True
+            elif known_name_pat.match(line) and not is_address_text(line):
+                is_new = True
 
         if is_new and curr_b:
             raw_blocks.append("\n".join(curr_b))
@@ -3325,6 +3370,29 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
         if not name or len(name) < 2 or name.lower() in ("p=", "saka", "i", "aro", "vaste") or is_procedural_or_garbage_party(name):
             continue
 
+        # Translate name and designations to English
+        name = translate_party_text(name)
+        relative_name = translate_party_text(relative_name)
+
+        # Check if name ends with an official designation (e.g. 'Channappa Tax Collector')
+        for desig in [
+            'Municipal Commissioner', 'Ex-Municipal Commissioner', 'District Manager',
+            'Tax Collector', 'Second Division Assistant (SDA) / Subject Executive',
+            'Second Division Assistant (SDA)', 'First Division Assistant (FDA) / Subject Executive',
+            'First Division Assistant (FDA)', 'Subject Executive', 'Outsourced Computer Operator',
+            'Assistant Executive Engineer (AEE)', 'Executive Engineer (EE)', 'Junior Engineer (JE)',
+            'Assistant Engineer (AE)', 'Revenue Officer', 'Revenue Inspector', 'Village Accountant',
+            'Tahsildar', 'Superintendent of Police', 'Police Inspector', 'Circle Police Inspector (CPI)',
+            'Police Sub-Inspector (PSI)'
+        ]:
+            m_des = re.search(rf'^(.*?)\s+({re.escape(desig)})(?:\b.*)?$', name, re.I)
+            if m_des and m_des.group(1).strip() and len(m_des.group(1).strip()) >= 3:
+                name = m_des.group(1).strip()
+                name = re.sub(r'\s+(?:Da\s*Sa|Nada|x)\b', '', name, flags=re.I).strip()
+                addr_candidate = f"{m_des.group(2).strip()}, {addr_candidate}".strip(" ,.-:;")
+                break
+
+        addr_candidate = translate_party_text(addr_candidate)
         addr_candidate = clean_party_address_py(addr_candidate)
         district, taluk, hobli, village = _extract_location_tuple(addr_candidate, full_str=full_str, case_defaults=case_defaults)
 
@@ -3339,11 +3407,11 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
                 status = "Heads of Government Departments"
             elif any(k in low_name for k in ["tahsildar", "special tahsildar"]):
                 status = "Tahsildar"
-            elif any(k in low_name for k in ["department", "government", "engineer", "commissioner", "kptcl", "bbmp", "bda"]):
+            elif any(k in low_name for k in ["department", "government", "engineer", "commissioner", "manager", "kptcl", "bbmp", "bda", "officer"]):
                 status = "Heads of Government Departments"
-            elif any(k in low_name for k in ["ltd", "limited", "company", "corp"]):
+            elif any(k in low_name for k in ["ltd", "limited", "company", "corp", "corporation"]):
                 status = "Company"
-            elif any(k in low_name for k in ["panchayat", "authority", "board"]):
+            elif any(k in low_name for k in ["panchayat", "authority", "board", "cmc", "tmc", "council"]):
                 status = "Local Authority"
 
         clean_addr = clean_party_address_py(addr_candidate)
@@ -3731,19 +3799,42 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
 
             # Check if this candidate is the total survey extent (e.g. 'ಒಟ್ಟು ವಿಸ್ತೀರ್ಣ 50 ಎಕರೆ 30 ಗುಂಟೆ')
             # Check immediate prefix (within 35 chars) to differentiate full total survey area from sub-parcels ('ಪೈಕಿ')
-            imm_before = search_text[max(0, start - 35):start]
+            imm_before = search_text[max(0, start - 45):start]
+            imm_after = search_text[end:min(len(search_text), end + 80)]
+            sy_ctx = search_text[max(0, start - 120):start]
+
             is_directly_total = bool(re.search(r'(?:ಒಟ್ಟು\s*ವಿಸ್ತೀರ್ಣ|ಒಟ್ಟು\s*ಅಳತೆ|ಒಟ್ಟು\s*ಜಮೀನು|total\s*(?:extent|area))', imm_before, re.I))
             is_directly_paiki = bool(re.search(r'(?:ಪೈಕಿ|out\s+of)', imm_before, re.I))
+            is_intermediate = bool(re.search(r'^\s*(?:ಮತ್ತು|and|,|\+)?\s*(?:ಸರ್ವೆ|sy|\d+|ಒಟ್ಟು\s*\d+)', imm_after, re.I))
+            is_directly_encroached = bool(re.search(r'(?:ಒತ್ತುವರಿ|ಒತುವರಿ|ಅಕ್ರಮವಾಗಿ|ಅನಧಿಕೃತವಾಗಿ|ಕಬಳಿಕೆ|encroach|disputed|problem)', imm_after, re.I)) and not is_intermediate
+            is_total_parcel = bool(re.search(r'(?:ಸೇರಿದ\s*ಜಾಗ|ಇಲಾಖೆಗೆ\s*ಸೇರಿದ|ಸರ್ಕಾರದ\s*ಜಾಗ|ಒಟ್ಟು\s*ವಿಸ್ತೀರ್ಣ|total\s*(?:extent|area))', imm_after, re.I))
             has_encroach = bool(re.search(r'(?:ಒತ್ತುವರಿ|ಒತುವರಿ|ಅಕ್ರಮವಾಗಿ|ಅನಧಿಕೃತವಾಗಿ|ಕಬಳಿಕೆ|encroach[\w]*)', surrounding, re.I))
             has_action = bool(re.search(r'(?:ಮಾಡಿಕೊಂಡಿರುವ|ಮಾಡಿದ|ವಿಸ್ತೀರ್ಣ|extent|ಜಾಗ|disputed)', surrounding, re.I))
+
+            matches_sy = False
+            target_sy = cleaned.get("survey_no") or ""
+            if not target_sy:
+                m_sy = re.findall(r'(?:ಸರ್ವೆ\s*ನಂ\.?|Sy\.?\s*No\.?)\s*(\d+[A-Za-z0-9/\-_]*)', search_text, re.I)
+                if m_sy:
+                    target_sy = m_sy[0]
+            if target_sy:
+                sy_in_ctx = re.findall(r'(?:ಸರ್ವೆ\s*ನಂ\.?|Sy\.?\s*No\.?)\s*(\d+[A-Za-z0-9/\-_]*)', sy_ctx, re.I)
+                if sy_in_ctx and sy_in_ctx[-1].strip().lower() == target_sy.lower():
+                    matches_sy = True
 
             score = 10 + spec_bonus
             if is_directly_paiki:
                 score += 150  # In land grabbing proceedings, prioritize the encroached portion (ಪೈಕಿ)
+            if is_directly_encroached:
+                score += 200  # Heavily prioritize the problem / encroached extent candidate
             elif is_directly_total:
-                score += 20
+                score += 10
+            if is_total_parcel and not is_directly_encroached:
+                score -= 80   # Penalize total background area when an encroached sub-portion is present
+            if matches_sy:
+                score += 120  # Matches specific survey number of the case
             if has_encroach:
-                score += 50
+                score += 30
             if has_action:
                 score += 15
 
