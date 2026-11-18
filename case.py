@@ -2146,7 +2146,11 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
 
     sep_match = re.search(r"(?:-?\s*ವಿರುದ್ಧ\s*-?|-?\s*ವಿರುದ್ದ\s*-?|\bvs\.?\b|\bv/s\b|\bversus\b)", header_text, re.IGNORECASE)
     if not sep_match:
-        sep_match = re.search(r"(?m)(?:^[ \t]*|[ \t]+)(?<!(?:by\s+the|to\s+the|against\s+the|of\s+the)\s)(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)(?:\s*(?:ನಂ\.?|nos?\.?))?\s*[:\-]", header_text, re.IGNORECASE)
+        for m in re.finditer(r"(?m)(?:^[ \t]*|[ \t]+)(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)(?:\s*(?:ನಂ\.?|nos?\.?))?\s*[:\-]", header_text, re.IGNORECASE):
+            preceding = header_text[max(0, m.start() - 30):m.start()]
+            if not re.search(r"\b(?:by|to|against|of)\s+the\s*$", preceding, re.IGNORECASE):
+                sep_match = m
+                break
 
     if not sep_match:
         if re.search(r"(?i)(?:^|\s)[Z~“\”‘\’\`\\\/]*A\s*\d+[\.\)]", header_text):
