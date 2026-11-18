@@ -44566,7 +44566,7 @@ function reconcileWorkflowValue(existing, value) {
         if (/\b(?:Aged?\s*(?:about|around)?\s*\d+|Age\s*[:\-]\s*\d+|ವಯಸ್ಸು|ಪ್ರಾಯ)\b/i.test(sClean)) {
           return false;
         }
-        const addrKwPat = /\b(?:Village|Grama|Gram|Dakhale|Dakhle|Palya|Halli|Koppa|Majare|Majar|Post|P\.O\.?|Hobli|Hobali|Taluk|Taluka|Tq\.?|District|Dist\.?|Colony|Layout|Nagar|Extension|Extn|Slum|Block|Sector|Cross|Main|Road|Street|Lane|Raste|Temple|Gudi|Devalaya|Dairy|School|College|Hosahalli|Near|Opp|Opposite|Beside|Behind|Backside|Adjacent|Door|Door\s*No|D\.?No|House\s*No|H\.?No|Flat|Plot|Room|Floor|Bengaluru|Bangalore|Kolar|Chikkaballapur|Chikkaballapura|Tumakuru|Ramanagara|\d{6})\b/i;
+        const addrKwPat = /\b(?:Village|Grama|Gram|Dakhale|Dakhle|Palya|Halli|Koppa|Majare|Majar|Post|P\.O\.?|Hobli|Hobali|Taluk|Taluka|Tq\.?|District|Dist\.?|Colony|Layout|Nagar|Extension|Extn|Slum|Block|Sector|Cross|Main|Road|Street|Lane|Raste|Temple|Gudi|Devalaya|Dairy|School|College|Hosahalli|Near|Opp|Opposite|Beside|Behind|Backside|Adjacent|Door|Door\s*No|D\.?No|House\s*No|H\.?No|Flat|Plot|Room|Floor|Bengaluru|Bangalore|Kolar|Chikkaballapur|Chikkaballapura|Tumakuru|Ramanagara|Bagalkote|Ballari|Belagavi|Bidar|Chamarajanagar|Chikkamagaluru|Chitradurga|Dakshina\s*Kannada|Davanagere|Dharwad|Gadag|Hassan|Haveri|Kalaburagi|Kodagu|Koppal|Mandya|Mysuru|Raichur|Shivamogga|Udupi|Uttara\s*Kannada|Vijayapura|Vijayanagara|Yadgir|Yadagiri|Surapura|Shahapura|Chittapura|Thellohalli|Thelohalli|\d{6})\b/i;
         return addrKwPat.test(sClean);
       }
 
@@ -46075,6 +46075,7 @@ function reconcileWorkflowValue(existing, value) {
           const addrStartPat = /^(?:No\.?|Plot|Flat|Door|Near|Opp|Beside|Behind|\d+\s*(?:st|nd|rd|th)?\s*Cross|Bengaluru|Kalaburagi)/i;
           const knownNamePat = /^(?:Murughan|Uma|Marvan\s*Abubkar|Deva(?:das)?|Ameer\s*Baig|Perumal|Ashok|Pushparaj|Feelik)[,\s]/i;
 
+          const hasNumberedParties = lines.some(l => pfxPat.test(l));
           rawBlocks = [];
           let currB = [];
           for (const line of lines) {
@@ -46082,10 +46083,9 @@ function reconcileWorkflowValue(existing, value) {
             if (pfxPat.test(line)) {
               const afterPfx = line.replace(pfxPat, "").trim();
               if (!addrStartPat.test(afterPfx) && !isAddressText(afterPfx) && !isAddressText(line)) isNew = true;
-            } else if (/^(?:Smt\.?|Sri\.?|Shri\.?)\s+[A-Z][a-zA-Z\s]+/i.test(line) && !addrStartPat.test(line) && !isAddressText(line)) {
-              isNew = true;
-            } else if (knownNamePat.test(line) && !isAddressText(line)) {
-              isNew = true;
+            } else if (!hasNumberedParties) {
+              if (/^(?:Smt\.?|Sri\.?|Shri\.?)\s+[A-Z][a-zA-Z\s]+/i.test(line) && !addrStartPat.test(line) && !isAddressText(line)) isNew = true;
+              else if (knownNamePat.test(line) && !isAddressText(line)) isNew = true;
             }
 
             if (isNew && currB.length) {
