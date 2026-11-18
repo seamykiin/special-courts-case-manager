@@ -2046,7 +2046,11 @@ def is_procedural_or_garbage_party(val: str) -> bool:
         r"vaste|edurudararu|arjidararu|petition\s+on\s+hand|alleging\s+encroachment|"
         r"encroachment\s+of\s+government\s+land|report\s+of\s+the\s+tahsildar|pre-cognizance\s+stage|"
         r"issue\s+notice\s+to|cause\s+notice|for\s+appearance\s+and\s+objection|appearance\s+and\s+objection|"
-        r"alalrc|gre\s*86|nos?\.?\s*\d+\s+and\s+\d+\s+for)\b"
+        r"alalrc|gre\s*86|nos?\.?\s*\d+\s+and\s+\d+\s+for|"
+        r"sadari\s+ottuvari|sadari\s+duri|shamilagi|nakali\s+dakhale|krama\s+jarugisi|manavi\s+madikondi|"
+        r"adesha\s+nidabeke|section\s+officer|nyayika|list\s+this\s+matter|hon’?ble|bhu\s+kabalike|"
+        r"special\s+court)\b|"
+        r"ಸದರಿ\s*(?:ಒತ್ತುವರಿ|ದೂರಿ|ಜಮೀನಿ)|ಶಾಮೀಲಾಗಿ|ನಕಲಿ\s*ದಾಖಲೆ|ಕ್ರಮ\s*ಜರುಗಿಸಿ|ಮನವಿ\s*ಮಾಡಿಕೊಂಡಿ|ಆದೇಶ\s*ನೀಡಬೇಕೆ|ಶಾಖಾಧಿಕಾರಿ|ನ್ಯಾಯಿಕ|ವಿಶೇಷ\s*ನ್ಯಾಯಾಲಯ"
     )
     if re.search(proc_pat, v_low):
         return True
@@ -2137,14 +2141,18 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
     )
     party_hdr_kw = r"(?:[ಅಾ]?ರ್ಜಿದಾರರು?|ದೂರುದಾರರು?|ಫಿರ್ಯಾದುದಾರರು?|ಎದುರುದಾರರು?|ಪ್ರತಿವಾದಿ)"
 
-    end_match = re.search(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತಿ|ಪತ್ರ|ಪತ್ರೆ|BS|ಪ್ರತೀ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು)", t, re.IGNORECASE)
+    end_match = re.search(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತಿ|ಪತ್ರ|ಪತ್ರೆ|BS|ಪ್ರತೀ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು|ಶಾಖಾಧಿಕಾರಿಗಳು|Section\s*Officer)", t, re.IGNORECASE)
     end_pos = end_match.start() if end_match else len(t)
     header_text = t[:end_pos].strip()
 
     if re.search(proc_kw, header_text) and not re.search(party_hdr_kw, header_text):
         return "", ""
 
-    sep_match = re.search(r"(?:-?\s*ವಿರುದ್ಧ\s*-?|-?\s*ವಿರುದ್ದ\s*-?|\bvs\.?\b|\bv/s\b|\bversus\b)", header_text, re.IGNORECASE)
+    sep_match = re.search(
+        r"(?m)(?:^[ \t]*(?:[A-Za-z0-9~<_\-\.\s|•]*?)?(?:-+|—+|–+)?\s*(?:[ಎE]\s*)?ವಿರುದ್[ಧ್ದ]\s*(?:-+|—+|–+)?\s*[|•]?\s*$|"
+        r"(?:-+|—+|–+)\s*(?:[ಎE]\s*)?ವಿರುದ್[ಧ್ದ]\s*(?:-+|—+|–+)|\b(?:vs\.?|v/s|versus|evirudda|virudda)\b)",
+        header_text, re.IGNORECASE
+    )
     if not sep_match:
         for m in re.finditer(r"(?m)(?:^[ \t]*|[ \t]+)(?:ಎದುರುದಾರರು|ಪ್ರತಿವಾದಿಗಳು|ಪ್ರತಿವಾದಿ|ಆರೋಪಿಗಳು|ಆರೋಪಿ|respondents?|accused|defendants?)(?:\s*(?:ನಂ\.?|nos?\.?))?\s*[:\-]", header_text, re.IGNORECASE):
             preceding = header_text[max(0, m.start() - 30):m.start()]
@@ -2155,6 +2163,24 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
     if not sep_match:
         if re.search(r"(?i)(?:^|\s)[Z~“\”‘\’\`\\\/]*A\s*\d+[\.\)]", header_text):
             return "", translate_party_text(header_text)
+        # Check if this page is a genuine continuation of numbered respondents (e.g. 7. Smt. Pushpavathi, 11. Smt. Soundarya)
+        # occurring before the order sheet header (ಆದೇಶ ಪತ್ರ / ದಿನಾಂಕ), while verifying it is not narrative text
+        has_proc_narrative = bool(re.search(
+            r"(?i)\b(?:sadari\s+ottuvari|sadari\s+duri|shamilagi|nakali\s+dakhale|krama\s+jarugisi|manavi\s+madikondi|adesha\s+nidabeke|section\s+officer|nyayika)\b|"
+            r"ಸದರಿ\s*(?:ಒತ್ತುವರಿ|ದೂರಿ|ಜಮೀನಿ)|ಶಾಮೀಲಾಗಿ|ನಕಲಿ\s*ದಾಖಲೆ|ಕ್ರಮ\s*ಜರುಗಿಸಿ|ಮನವಿ\s*ಮಾಡಿಕೊಂಡಿ|ಆದೇಶ\s*ನೀಡಬೇಕೆ|ಶಾಖಾಧಿಕಾರಿ|ನ್ಯಾಯಿಕ",
+            header_text
+        ))
+        if not has_proc_narrative and re.search(r"(?m)^\s*(?:[1-9]\d{0,2}|[೧-೯]\d{0,2})[\.\)]\s*[A-Za-z\u0C80-\u0CFF]", header_text):
+            lines = [l.strip() for l in header_text.split("\n") if l.strip()]
+            valid_party_lines = []
+            for l in lines:
+                if is_procedural_or_garbage_party(l):
+                    continue
+                if re.match(r"^\s*(?:[1-9]\d{0,2}|[೧-೯]\d{0,2})[\.\)]\s*(?:(?:Smt\.?|Sri\.?|Shri\.?|Late\.?|Dr\.?|Kum\.?)\s+[A-Za-z\u0C80-\u0CFF]|"
+                            r"(?:District|Tahsildar|Commissioner|Engineer|Sahayaka|Karavasooligarara|Karyapalaka|Paurayuktaru|Inspector|Adhikari|Waterman)\b|[A-Za-z\u0C80-\u0CFF]{3,})", l, re.I):
+                    valid_party_lines.append(l)
+            if valid_party_lines:
+                return "", translate_party_text(header_text)
         return "", ""
 
     app_part = header_text[:sep_match.start()].strip()
@@ -2214,16 +2240,19 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
     migrated_resp_lines = []
     final_app_lines = []
     is_migrating = False
-    for l in app_clean_lines:
-        if re.search(r"^\s*(?:[1-9]\d{0,2}[\.\)]|A\d+)", l) and not is_migrating:
-            has_official = any(re.search(r"(?i)(?:ಅಭಿಯಂತರ|ತಹ[ಶಸ]ೀಲ್ದಾ|ಪೊಲೀಸ್|ದೂರುದಾರ|ಅಧಿಕಾರಿ|ಕಾರ್ಯದರ್ಶಿ|ಆಯುಕ್ತ|Engineer|Tahsildar|Police|Complainant|Officer)", al) for al in final_app_lines)
-            if has_official:
+    if not sep_match:
+        for l in app_clean_lines:
+            if re.search(r"^\s*(?:[1-9]\d{0,2}[\.\)]|\bA\d+\b)", l) and not is_migrating:
+                has_official = any(re.search(r"(?i)(?:ಅಭಿಯಂತರ|ತಹ[ಶಸ]ೀಲ್ದಾ|ಪೊಲೀಸ್|ದೂರುದಾರ|ಅಧಿಕಾರಿ|ಕಾರ್ಯದರ್ಶಿ|ಆಯುಕ್ತ|Engineer|Tahsildar|Police|Complainant|Officer)", al) for al in final_app_lines)
+                if has_official and re.search(r"(?i)(?:\baro\b|ಆರೋಪಿ|accused|respondent)", l):
+                    is_migrating = True
+            if is_migrating or re.search(r"(?i)(?:\baro\b|ಆರೋಪಿ)", l):
                 is_migrating = True
-        if is_migrating or re.search(r"(?i)(?:aro|ಆರೋಪಿ)", l):
-            is_migrating = True
-            migrated_resp_lines.append(l)
-        else:
-            final_app_lines.append(l)
+                migrated_resp_lines.append(l)
+            else:
+                final_app_lines.append(l)
+    else:
+        final_app_lines = app_clean_lines
     app_raw = "\n".join(final_app_lines).strip()
 
     r = resp_part.strip()
@@ -2231,7 +2260,7 @@ def extract_parties_from_text(text: str) -> tuple[str, str]:
     if m_resp_hdr:
         r = r[m_resp_hdr.end():].strip()
     r = re.sub(r"^[^\w\s\d]+", "", r).strip()
-    r = re.sub(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತಿ|ಪತ್ರ|ಪತ್ರೆ|BS|ಪ್ರತೀ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು)[\s\S]*", "", r, flags=re.I)
+    r = re.sub(r"(?:ಆದೇಶ(?:ದ)?\s*(?:ಪ್ರತಿ|ಪತಿ|ಪತ್ರ|ಪತ್ರೆ|BS|ಪ್ರತೀ)|ಆರ್ಡ[ರರ್]್‌?\s*ಶೀ[ಟಟ್]್‌?|ದಿನಾಂಕ\s+\d+|Order\s*Sheet|Daily\s*Order|Made\s+over|ವಿಲೇಖನಾಧಿಕಾರಿಗಳು|ಶಾಖಾಧಿಕಾರಿಗಳು|Section\s*Officer)[\s\S]*", "", r, flags=re.I)
 
     resp_clean_lines = []
     for l in r.split("\n"):
@@ -2494,6 +2523,13 @@ def is_address_text(s: str) -> bool:
         return False
     if re.search(r'\b(?:Aged?\s*(?:about|around)?\s*\d+|Age\s*[:\-]\s*\d+|ವಯಸ್ಸು|ಪ್ರಾಯ)\b', s_clean, re.I):
         return False
+    # Check official designations and titles first so they are never classified as addresses
+    if re.search(r'\b(?:District\s+(?:Vyavasthapakaru|Manager|Officer|Registrar|Judge|Surgeon|Collector)|'
+                 r'ಜಿಲ್ಲಾ\s*ವ್ಯವಸ್ಥಾಪಕರು|ಜಿಲ್ಲಾ\s*ಅಧಿಕಾರಿ|Paurayuktaru|Municipal\s+Commissioner|Commissioner|'
+                 r'Tahsildar|Revenue\s+Officer|Tax\s+Collector|Karavasooligarara|Karyapalaka|'
+                 r'Waterman(?:\s+Subject\s+Executive)?|First\s+Grade\s+Assistant|Second\s+Grade\s+Assistant|'
+                 r'FDA|SDA|Engineer|Inspector|Adhikari|Advocate|ವಕೀಲರು)\b', s_clean, re.I):
+        return False
     addr_kw_pat = (
         r'\b(?:Village|Grama|Gram|Dakhale|Dakhle|Palya|Halli|Koppa|Majare|Majar|'
         r'Post|P\.O\.?|Hobli|Hobali|Taluk|Taluka|Tq\.?|District|Dist\.?|'
@@ -2515,12 +2551,15 @@ def _split_single_party(text: str, prefix: str = "") -> tuple[str, str]:
         return "", ""
 
     off_titles = (
-        r"^(?:SHO,?\s*BMTF\s*PS|Station\s*House\s*Officer|Police\s*Inspector|Police\s*Sub-Inspector|PSI|P\.I\.(?:\s+Police)?|"
-        r"Executive\s*Engineer|Assistant\s*Executive\s*Engineer\s*(?:\(AEE\))?|Assistant\s*Engineer\s*(?:\(AE\))?|Junior\s*Engineer\s*(?:\(JE\))?|Chief\s*Engineer|Superintending\s*Engineer|"
-        r"Assistant\s*Director\s*of\s*Land\s*Records\s*(?:\(ADLR\))?|Deputy\s*Director\s*of\s*Land\s*Records\s*(?:\(DDLR\))?|Assistant\s*Director|Deputy\s*Director|Director|"
-        r"Tahsildar\s*&\s*Taluk\s*Executive\s*Magistrate|Tahsildar|Deputy\s*Tahsildar|Special\s*Deputy\s*Commissioner|Deputy\s*Commissioner|Assistant\s*Commissioner|"
+        r"^(?:(?:\d+[\.\)]\s*)?(?:District\s+(?:Manager|Vyavasthapakaru|Officer|Registrar|Magistrate|Judge|Surgeon|Collector)|"
+        r"Paurayuktaru|Municipal\s+Commissioner|Commissioner|Tahsildar|Revenue\s+Officer|Tax\s+Collector|Karavasooligarara|"
+        r"Waterman(?:\s+Subject\s+Executive)?|First\s+Grade\s+Assistant|Second\s+Grade\s+Assistant|FDA|SDA|"
+        r"Executive\s+Engineer|Assistant\s+Executive\s+Engineer\s*(?:\(AEE\))?|Assistant\s+Engineer\s*(?:\(AE\))?|Junior\s*Engineer\s*(?:\(JE\))?|Chief\s*Engineer|Superintending\s*Engineer|"
+        r"Assistant\s+Director\s*of\s*Land\s*Records\s*(?:\(ADLR\))?|Deputy\s*Director\s*of\s*Land\s*Records\s*(?:\(DDLR\))?|Assistant\s*Director|Deputy\s*Director|Director|"
+        r"Tahsildar\s*&\s*Taluk\s*Executive\s*Magistrate|Deputy\s*Tahsildar|Special\s*Deputy\s*Commissioner|Deputy\s*Commissioner|Assistant\s*Commissioner|"
         r"Revenue\s*Inspector|Village\s*Accountant|Executive\s*Officer|Panchayat\s*Development\s*Officer\s*(?:\(PDO\))?|"
-        r"Gram\s*Panchayat|Taluk\s*Panchayat|Zilla\s*Panchayat|State\s*of\s*Karnataka|Government\s*of\s*Karnataka)(?:\b|(?<=\))|$)"
+        r"Gram\s*Panchayat|Taluk\s*Panchayat|Zilla\s*Panchayat|State\s*of\s*Karnataka|Government\s*of\s*Karnataka|SHO,?\s*BMTF\s*PS|Station\s*House\s*Officer|Police\s*Inspector|Police\s*Sub-Inspector|PSI|P\.I\.(?:\s+Police)?|"
+        r"Superintendent\s+of\s+Police|Deputy\s+Superintendent\s+of\s+Police(?:\s*-\s*\d+)?)(?:\b|(?<=\))|$))"
     )
     m_off = re.match(off_titles, t, re.I)
     if m_off:
@@ -3041,7 +3080,22 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
     addr_start_pat = re.compile(r'^(?:No\.?|Plot|Flat|Door|Near|Opp|Beside|Behind|\d+\s*(?:st|nd|rd|th)?\s*Cross|Bengaluru|Kalaburagi)', re.I)
     known_name_pat = re.compile(r'^(?:Murughan|Uma|Marvan\s*Abubkar|Deva(?:das)?|Ameer\s*Baig|Perumal|Ashok|Pushparaj|Feelik)[,\s]', re.I)
 
-    lines = [l.strip() for l in t_clean.split("\n") if l.strip()]
+    # Merge standalone digit lines (e.g. '4\nManjunath...' or '1\nPaurayuktaru...') into a single line
+    raw_lines = [l.strip() for l in t_clean.split("\n") if l.strip()]
+    merged_lines = []
+    i = 0
+    while i < len(raw_lines):
+        line = raw_lines[i]
+        if re.match(r'^(?:[1-9]\d{0,2}|[೧-೯]\d{0,2})[\.\)]?$', line) and i + 1 < len(raw_lines):
+            next_l = raw_lines[i+1]
+            if not is_address_text(next_l) and not addr_start_pat.match(next_l):
+                merged_lines.append(f"{line}. {next_l}")
+                i += 2
+                continue
+        merged_lines.append(line)
+        i += 1
+
+    lines = merged_lines
     raw_blocks = []
     curr_b = []
     for line in lines:
@@ -3067,6 +3121,7 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
         raw_blocks = [t_clean]
 
     results = []
+    shared_addr_ranges = []
     default_dist = case_defaults.get("district", "")
     default_taluk = case_defaults.get("taluk", "")
     default_hobli = case_defaults.get("hobli", "")
@@ -3178,6 +3233,8 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
             addr_candidate = clean_block[m_age.end():]
         else:
             l_parts = [l.strip() for l in clean_block.split('\n') if l.strip()]
+            if len(l_parts) > 1 and re.match(r'^\d{1,3}[\.\)]?$', l_parts[0]):
+                l_parts = l_parts[1:]
             if len(l_parts) > 1:
                 name = clean_party_token_py(l_parts[0])
                 addr_candidate = ', '.join(l_parts[1:])
@@ -3188,6 +3245,19 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
             else:
                 name = clean_party_token_py(clean_block)
                 addr_candidate = ''
+
+        # Check for shared address range specification (e.g. "Respondent No.1 to 3 Address: - ...")
+        m_shared = re.search(r'(?:Respondent(?:s)?|Edurudara|ಎದುರುದಾರ(?:ರು)?)\s*(?:No\.?|ನಂ\.?)?\s*(\d+)\s*(?:to|ರಿಂದ|-)\s*(\d+)\s*(?:ರವರ)?\s*(?:Address|ವಿಳಾಸ)\s*[:\-]?\s*([^\n\r]+(?:\n[^\n\r]+)*)', full_str, re.I)
+        if m_shared:
+            try:
+                s_idx = int(m_shared.group(1))
+                e_idx = int(m_shared.group(2))
+                s_addr = m_shared.group(3).strip(" ,.-:;")
+                if s_addr:
+                    shared_addr_ranges.append((s_idx, e_idx, s_addr))
+            except Exception:
+                pass
+            addr_candidate = re.sub(r'(?i)(?:Respondent(?:s)?|Edurudara|ಎದುರುದಾರ(?:ರು)?)\s*(?:No\.?|ನಂ\.?)?\s*\d+\s*(?:to|ರಿಂದ|-)\s*\d+\s*(?:ರವರ)?\s*(?:Address|ವಿಳಾಸ)\s*[:\-]?\s*', '', addr_candidate).strip(" ,.-:;")
 
         # Alias check (@ Muniyan)
         alias_match = re.search(r'@\s*([A-Za-z\s]+)', full_str)
@@ -3203,6 +3273,18 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
         name = re.sub(r'^[^\w\s]+', '', name)
         name = re.sub(r'^\d{2,4}\s+', '', name) # strip OCR error numbers like 714, 7780
         name = clean_party_token_py(name)
+
+        # Check if name itself is advocate information (e.g. '28.01.26 Vakilaru', 'Vakilaru, No. 446...')
+        if re.search(r'\b(?:Vakilaru|Vakilara|ವಕೀಲರು|Advocate|Counsel|Learned\s+Counsel)\b', name, re.I):
+            if results:
+                prev_party = results[-1]
+                prev_party["hasAdvocate"] = True
+                adv_clean = re.sub(r'^(?:\d+[\.\s]*)?(?:Vakilaru|Vakilara|ವಕೀಲರು|Advocate|Counsel)\s*[:\-.]*\s*', '', name, flags=re.I).strip()
+                if adv_clean and len(adv_clean) >= 3 and not re.search(r'\b(?:No\.|Floor|Road|Cross)\b', adv_clean, re.I):
+                    prev_party["advocateName"] = adv_clean
+                elif not prev_party.get("advocateName"):
+                    prev_party["advocateName"] = "Advocate"
+            continue
 
         # Check if name itself is actually an address line (e.g. 'Thellohalli Village', 'Ambedkar Colony')
         if is_address_text(name):
@@ -3265,6 +3347,20 @@ def extract_structured_parties(text_or_lines, party_type="pet", case_defaults=No
             "advocateEmail": advocate_email,
             "advocateBarNo": advocate_bar_no
         })
+
+    # Propagate shared address ranges to all parties in the range
+    for start_idx, end_idx, shared_addr in shared_addr_ranges:
+        shared_clean = clean_party_address_py(shared_addr)
+        s_dist, s_taluk, s_hobli, s_village = _extract_location_tuple(shared_clean, full_str=shared_clean, case_defaults=case_defaults)
+        for pos in range(start_idx, end_idx + 1):
+            if 1 <= pos <= len(results):
+                p = results[pos - 1]
+                if not p.get("address") or len(p["address"]) < 8 or "address" in p["address"].lower():
+                    p["address"] = shared_clean
+                    if s_dist and not p.get("district"): p["district"] = s_dist
+                    if s_taluk and not p.get("taluk"): p["taluk"] = s_taluk
+                    if s_hobli and not p.get("hobli"): p["hobli"] = s_hobli
+                    if s_village and not p.get("village"): p["village"] = s_village
 
     return results
 
@@ -3389,7 +3485,7 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
     fn_stem = Path(file_path).stem if file_path else ""
     if fn_stem:
         m_fn = re.search(
-            r"(?i)\b(?:L\.?G\.?C\.?|ಎಲ್\.?[\s.]*ಜಿ\.?[\s.]*ಸಿ\.?|Misc|R\.?P\.?)?\s*\(?\s*([GPTS]|R\.?P\.?|Misc|ಜಿ|ಪಿ|ಟಿ|ಎಸ್)?\s*\)?\s*(?:No\.?|ನಂ\.?)?\s*(\d{1,6})\s*[-_/]\s*(20\d{2})\b",
+            r"(?i)\b(?:CH[_\s\-]*\d+[_\s\-]+)?(?:L\.?G\.?C\.?|ಎಲ್\.?[\s.]*ಜಿ\.?[\s.]*ಸಿ\.?|Misc|R\.?P\.?)?\s*\(?\s*[\-_/]?\s*([GPTS]|R\.?P\.?|Misc|ಜಿ|ಪಿ|ಟಿ|ಎಸ್)?\s*\)?\s*(?:No\.?|ನಂ\.?)?\s*(\d{1,6})\s*[-_/]\s*(20\d{2})\b",
             fn_stem
         )
         if not m_fn:
@@ -3403,7 +3499,7 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             fn_type, fn_num, fn_yr = m_fn.group(1), m_fn.group(2), m_fn.group(3)
 
         if fn_num and fn_yr:
-            case_candidates.append((fn_num, fn_yr, -1, 30))
+            case_candidates.append((fn_num, fn_yr, 0, 60))
             if fn_type:
                 cleaned["case_type"] = normalize_case_type(fn_type)
             if not cleaned.get("filing_year"):
@@ -3492,11 +3588,11 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
     # Priority 3: Fallback to case number in file name if present
     if file_path:
         fn_stem = os.path.splitext(os.path.basename(file_path))[0]
-        m_fn_cno = re.search(r'(?:LGC[_\s\-]*[A-Za-z]*[_\s\-]*)(\d+)[_\s\-]+(20\d{2}|\d{2})\b', fn_stem, re.IGNORECASE)
+        m_fn_cno = re.search(r'(?:(?:CH[_\s\-]*\d+[_\s\-]+)?LGC[_\s\-]*[A-Za-z]*[_\s\-]*)(\d+)[_\s\-]+(20\d{2}|\d{2})\b', fn_stem, re.IGNORECASE)
         if m_fn_cno:
             fn_num, fn_yr = m_fn_cno.group(1), m_fn_cno.group(2)
             fn_yr = "20" + fn_yr if len(fn_yr) == 2 else fn_yr
-            case_candidates.append((fn_num, fn_yr, 999, 18))
+            case_candidates.append((fn_num, fn_yr, 999, 50))
         else:
             fn_digits = extract_case_number_only(fn_stem)
             if fn_digits and fn_digits.isdigit() and len(fn_digits) in (3, 4):
@@ -3701,6 +3797,8 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
         # Fix OCR misreading of Kannada possessive suffix 'ರ' (ra) as 'ld' (from 1ರ) or 'd'/'rd'
         s = re.sub(r'/(?:[lI|!])?(?:ld|rd|id|Id)$', '/1', s, flags=re.I)
         s = re.sub(r'(?<=\d)(?:ld|rd|[rdD])$', '', s)
+        # Fix OCR misreading of Kannada 'ಇ' as 'Q' (e.g. '394/Q' -> '394/ಇ')
+        s = re.sub(r'/(?:Q|q)$', '/ಇ', s)
         # Strip trailing Kannada possessive suffixes or ordinals like 'ರ', 'ದ', 'ನೇ', 'ನಲ್ಲಿ', 'ರಲ್ಲಿ'
         s = re.sub(r'(?:\s*(?:ರ|ದ|ನೇ|ನೆ|ರಲ್ಲಿ|ದಲ್ಲಿ|ರಲ್ಲಿನ|ದಲ್ಲಿನ|ನೇದು|ನೆದು))?\s*$', '', s)
         s = re.sub(r'[.,;:_\s]+$', '', s).strip()
@@ -3722,7 +3820,7 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
     # 1. Match survey number following a prefix (e.g. 'ಸರ್ವೆ ನಂ. 24/8/7', 'Sy. No. 24/8/7', 'ಸರ್ವೇ ನಂಬರ್ 24/8/7', 'ಸಿ.ಟಿ.ಎಸ್.ನಂ. 108', 'CTC No. 108')
     sy_pat1 = re.compile(
         r'(?:(?:ಸಿ\.?\s*ಟಿ\.?\s*(?:ಎ\s*ಸ[\u0CCD\u200C\u200D\.]*|ಸಿ[\u0CCD\u200C\u200D\.]*)|C\.?T\.?[SC]\.?|ಸರ್ವೆ|ಸರ್ವೇ|ಸರ್ವ)\s*(?:ನ[ಂ೦0o\.]*|ಸಂಖ್ಯೆ|ನಂಬರ್|ನಂಬರು|go|ro|bo|so|no|ಸೊ|ಗೊ|ನೊ)?|ಸ\.?\s*ನ[ಂ೦0o\.]*|[SF]\.?\s*(?:Nos?\.?|So\.?|go\.?)|Sy\.?\s*Nos?\.?|S\.?\s*Nos?\.?|Survey\s*(?:Nos?\.?|Numbers?)?)\s*[:\-#.]*\s*'
-        r'([0-9]+(?:\s*[/\\-]\s*[0-9A-Za-z]+)*(?:\s*(?:ಮತ್ತು|and|&|,)\s*[0-9]+(?:\s*[/\\-]\s*[0-9A-Za-z]+)*)*(?:\s*(?:paiki|p|ಪೈಕಿ))?)',
+        r'([0-9]+(?:\s*[/\\-]\s*[0-9A-Za-z\u0C80-\u0CFF]+)*(?:\s*(?:ಮತ್ತು|and|&|,)\s*[0-9]+(?:\s*[/\\-]\s*[0-9A-Za-z\u0C80-\u0CFF]+)*)*(?:\s*(?:paiki|p|ಪೈಕಿ))?)',
         re.IGNORECASE
     )
     for m in sy_pat1.finditer(t_norm):
@@ -3766,15 +3864,23 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             continue
         valid_candidates.append(cand)
 
+    sched_block = text
+    m_sched = re.search(r'(?:ಅರ್ಜಿ\s*ಸಲ್ಲಿಸಿ|schedule|property|ಆದೇಶ\s*ಪತ್ರ)[\s\S]*?(?=ಒತ್ತುವರಿ|ಅಕ್ರಮವಾಗಿ|\n\n|$)', text, re.IGNORECASE)
+    if m_sched:
+        sched_block = m_sched.group(0)
+
     # 4. Pick candidate that captures the full survey number: prioritize maximum slashes and completeness
-    def _survey_score(s: str) -> tuple[int, int, int, int, int]:
+    def _survey_score(s: str) -> tuple[int, int, int, int, int, int, int, int]:
         slashes = s.count('/')
         clean_for_check = re.sub(r'^(?:CTS|CTC)\s*', '', s, flags=re.I)
         has_invalid_letters = int(bool(re.search(r'[c-zC-Z]', clean_for_check)))
-        is_clean_numeric = int(bool(re.match(r'^\d+(?:/\d+)*$', clean_for_check)))
+        has_kannada_hissa = int(bool(re.search(r'[\u0C80-\u0CFF]', clean_for_check)))
+        is_clean_numeric = int(bool(re.match(r'^\d+(?:/(?:\d+|[\u0C80-\u0CFFa-bA-B]))*$', clean_for_check)))
         is_cts_or_ctc = int(bool(re.match(r'^(?:CTS|CTC)\b', s, re.I)))
+        is_trivial_noise = int(bool(re.match(r'^(?:1/1|2/2|0/0)$', s.strip())))
+        in_schedule = int(bool(sched_block and s in sched_block))
         length = len(s)
-        return (is_cts_or_ctc, slashes, -has_invalid_letters, is_clean_numeric, length)
+        return (in_schedule, is_cts_or_ctc, -is_trivial_noise, slashes, has_kannada_hissa, -has_invalid_letters, is_clean_numeric, length)
 
     if valid_candidates:
         valid_candidates.sort(key=_survey_score, reverse=True)
@@ -3803,10 +3909,10 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
 
     # 6. Geography (District, Taluk, Hobli, Village)
     # Prefer property schedule block (after 'ಅರ್ಜಿ ಸಲ್ಲಿಸಿ' or near 'ಸರ್ವೆ ನಂ.') over petitioner address
-    sched_block = text
-    m_sched = re.search(r'(?:ಅರ್ಜಿ\s*ಸಲ್ಲಿಸಿ|schedule|property)[\s\S]*?(?=ಒತ್ತುವರಿ|ಅಕ್ರಮವಾಗಿ|\n\n|$)', text, re.IGNORECASE)
-    if m_sched:
-        sched_block = m_sched.group(0)
+    if not m_sched:
+        m_sched = re.search(r'(?:ಅರ್ಜಿ\s*ಸಲ್ಲಿಸಿ|schedule|property)[\s\S]*?(?=ಒತ್ತುವರಿ|ಅಕ್ರಮವಾಗಿ|\n\n|$)', text, re.IGNORECASE)
+        if m_sched:
+            sched_block = m_sched.group(0)
 
     # Taluk
     if not cleaned.get("taluk"):
@@ -4505,8 +4611,12 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
     raw_app_source = ext_app or cleaned.get("applicants") or app_name or ""
     raw_resp_source = ext_resp or cleaned.get("respondents") or resp_name or ""
 
-    cleaned["applicants_data"] = extract_structured_parties(raw_app_source, "pet", case_defaults=case_geo)
-    cleaned["respondents_data"] = extract_structured_parties(raw_resp_source, "resp", case_defaults=case_geo)
+    parsed_apps = extract_structured_parties(raw_app_source, "pet", case_defaults=case_geo)
+    if not cleaned.get("applicants_data") or len(parsed_apps) > len(cleaned.get("applicants_data") or []):
+        cleaned["applicants_data"] = parsed_apps
+    parsed_resps = extract_structured_parties(raw_resp_source, "resp", case_defaults=case_geo)
+    if not cleaned.get("respondents_data") or len(parsed_resps) > len(cleaned.get("respondents_data") or []):
+        cleaned["respondents_data"] = parsed_resps
     cleaned["petitioners"] = cleaned["applicants_data"]
     cleaned["respondents"] = cleaned["respondents_data"]
 
@@ -4636,7 +4746,7 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
 
     for idx, item in enumerate(results, 1):
         ext = dict(item.get("extracted", {}))
-        path_val = str(item.get("path", "")).strip()
+        path_val = str(item.get("path") or item.get("file_path") or "").strip()
         stem = Path(path_val).stem if path_val else ""
         stem_base = re.sub(r'[\-_\s]?(?:p|page|pg)?\d+$', '', stem, flags=re.IGNORECASE).lower()
 
@@ -4657,7 +4767,7 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
             grouped_map[key] = {
                 "name": item.get("name", f"Case {idx}"),
                 "pages": [item.get("name", "")],
-                "paths": [item.get("path", "")],
+                "paths": [item.get("path") or item.get("file_path") or ""],
                 "extracted": ext,
                 "raw_texts": [item.get("raw_text", "")]
             }
@@ -4710,8 +4820,6 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
                         if not r_name or len(r_name) < 3 or is_procedural_or_garbage_party(r_name) or is_address_text(r_name):
                             continue
                         if r_name and r_name not in seen_names:
-                            if curr_resps and (not r.get("relationship") and not r.get("age") and not r.get("relativeName") and "tahsildar" not in r_name):
-                                continue
                             seen_names.add(r_name)
                             curr_resps.append(r)
                 elif k == "applicants_data":
@@ -4722,14 +4830,12 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
                         if not a_name or len(a_name) < 3 or is_procedural_or_garbage_party(a_name) or is_address_text(a_name):
                             continue
                         if a_name and a_name not in seen_names:
-                            if curr_apps and (not a.get("relationship") and not a.get("age") and not a.get("relativeName")):
-                                continue
                             seen_names.add(a_name)
                             curr_apps.append(a)
                 elif k in ("survey_no", "ward_no", "village", "taluk", "hobli", "court", "case_type") and v and not target.get(k):
                     target[k] = v
             grouped_map[key]["pages"].append(item.get("name", ""))
-            grouped_map[key]["paths"].append(item.get("path", ""))
+            grouped_map[key]["paths"].append(item.get("path") or item.get("file_path") or "")
             grouped_map[key]["raw_texts"].append(item.get("raw_text", ""))
 
             merged_resps = list(target.get("respondents_data") or [])

@@ -2556,17 +2556,108 @@ button * {
   margin-top: 0;
 }
 .dyn-block {
+  position: relative;
   border: 1px solid var(--border-card);
   border-radius: 8px;
-  padding: 14px 16px;
+  padding: 12px 16px 14px 16px;
   margin-bottom: 12px;
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(16, 24, 40, 0.05);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 }
 .dyn-block:hover {
   border-color: #cbd5e1;
   box-shadow: 0 2px 6px rgba(16, 24, 40, 0.08);
+}
+.dyn-block.is-dragging {
+  opacity: 0.45;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.15);
+  border: 1px dashed var(--accent, #059669);
+  cursor: grabbing;
+}
+.dyn-block.drag-over-top {
+  border-top: 3px solid var(--accent, #059669) !important;
+}
+.dyn-block.drag-over-bottom {
+  border-bottom: 3px solid var(--accent, #059669) !important;
+}
+.party-card-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #f1f5f9;
+  user-select: none;
+}
+.party-card-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.party-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #94a3b8;
+  cursor: grab;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.party-drag-handle:hover {
+  background-color: #f1f5f9;
+  color: #334155;
+}
+.party-drag-handle:active {
+  cursor: grabbing;
+}
+.party-box-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  letter-spacing: 0.02em;
+}
+.party-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+.party-card-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.party-reorder-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.party-reorder-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+.party-reorder-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 .party-card-header {
   display: flex;
@@ -45510,7 +45601,99 @@ function reconcileWorkflowValue(existing, value) {
         </div>`;
       }
 
-      function petRowHtml(data = {}) {
+      function updatePartyBoxNumbers(type) {
+        const containerId = type === "pet" ? "petRows" : "respRows";
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const selector = type === "pet" ? "[data-petrow]" : "[data-resprow]";
+        const rows = Array.from(container.querySelectorAll(selector));
+        const total = rows.length;
+        rows.forEach((row, idx) => {
+          const num = idx + 1;
+          const badge = row.querySelector("[data-box-num]");
+          if (badge) badge.textContent = `#${num}`;
+          const title = row.querySelector(".party-card-title");
+          if (title) title.textContent = `${type === "pet" ? "Petitioner" : "Respondent"} ${num}`;
+          const upBtn = row.querySelector(".move-up-btn");
+          if (upBtn) upBtn.disabled = (num === 1);
+          const downBtn = row.querySelector(".move-down-btn");
+          if (downBtn) downBtn.disabled = (num === total);
+        });
+      }
+
+      function wirePartyContainerDragDrop(container, type) {
+        if (!container || container._hasDndWired) return;
+        container._hasDndWired = true;
+
+        let draggedItem = null;
+
+        container.addEventListener("dragstart", (e) => {
+          const selector = type === "pet" ? "[data-petrow]" : "[data-resprow]";
+          const card = e.target.closest(selector);
+          if (!card) return;
+          draggedItem = card;
+          card.classList.add("is-dragging");
+          e.dataTransfer.effectAllowed = "move";
+          try { e.dataTransfer.setData("text/plain", ""); } catch (err) {}
+        });
+
+        container.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          const selector = type === "pet" ? "[data-petrow]" : "[data-resprow]";
+          const targetCard = e.target.closest(selector);
+          if (!targetCard || targetCard === draggedItem) return;
+
+          const rect = targetCard.getBoundingClientRect();
+          const midY = rect.top + rect.height / 2;
+          if (e.clientY < midY) {
+            targetCard.classList.add("drag-over-top");
+            targetCard.classList.remove("drag-over-bottom");
+          } else {
+            targetCard.classList.add("drag-over-bottom");
+            targetCard.classList.remove("drag-over-top");
+          }
+        });
+
+        container.addEventListener("dragleave", (e) => {
+          const selector = type === "pet" ? "[data-petrow]" : "[data-resprow]";
+          const targetCard = e.target.closest(selector);
+          if (targetCard && (!e.relatedTarget || !targetCard.contains(e.relatedTarget))) {
+            targetCard.classList.remove("drag-over-top", "drag-over-bottom");
+          }
+        });
+
+        container.addEventListener("drop", (e) => {
+          e.preventDefault();
+          const selector = type === "pet" ? "[data-petrow]" : "[data-resprow]";
+          const targetCard = e.target.closest(selector);
+          if (draggedItem && targetCard && targetCard !== draggedItem) {
+            const rect = targetCard.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            if (e.clientY < midY) {
+              container.insertBefore(draggedItem, targetCard);
+            } else {
+              container.insertBefore(draggedItem, targetCard.nextSibling);
+            }
+          }
+          container.querySelectorAll(selector).forEach(c => {
+            c.classList.remove("drag-over-top", "drag-over-bottom", "is-dragging");
+          });
+          draggedItem = null;
+          updatePartyBoxNumbers(type);
+          syncPartiesToTextareas();
+        });
+
+        container.addEventListener("dragend", () => {
+          const selector = type === "pet" ? "[data-petrow]" : "[data-resprow]";
+          container.querySelectorAll(selector).forEach(c => {
+            c.classList.remove("drag-over-top", "drag-over-bottom", "is-dragging");
+          });
+          draggedItem = null;
+        });
+      }
+
+      function petRowHtml(data = {}, index = 1, total = 1) {
         data = data || {};
         const hasAdvocate = Boolean(
           data.hasAdvocate === true ||
@@ -45521,7 +45704,25 @@ function reconcileWorkflowValue(existing, value) {
         const otherVal = data.statusOther || (isOther && data.status !== "Other" ? data.status : "");
         const statusVal = isKnown ? data.status : (isOther ? "Other" : (data.status || ""));
 
-        return `<div class="dyn-block" data-petrow>
+        return `<div class="dyn-block" data-petrow draggable="true">
+          <div class="party-card-topbar">
+            <div class="party-card-topbar-left">
+              <span class="party-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <circle cx="5" cy="3.5" r="1.5"/><circle cx="11" cy="3.5" r="1.5"/>
+                  <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
+                  <circle cx="5" cy="12.5" r="1.5"/><circle cx="11" cy="12.5" r="1.5"/>
+                </svg>
+              </span>
+              <span class="party-box-badge" data-box-num>#${index}</span>
+              <span class="party-card-title">Petitioner ${index}</span>
+            </div>
+            <div class="party-card-topbar-right">
+              <button type="button" class="party-reorder-btn move-up-btn" title="Move Up" aria-label="Move Up" ${index === 1 ? 'disabled' : ''}>▲</button>
+              <button type="button" class="party-reorder-btn move-down-btn" title="Move Down" aria-label="Move Down" ${index === total ? 'disabled' : ''}>▼</button>
+              <button type="button" class="rm-row" data-rm aria-label="Remove petitioner" title="Remove petitioner">&times;</button>
+            </div>
+          </div>
           <div class="party-card-header">
             <div class="party-identity-fields">
               <input type="text" class="petName party-name-input" placeholder="Petitioner / Complainant name" value="${escAttr(data.name || "")}">
@@ -45537,7 +45738,6 @@ function reconcileWorkflowValue(existing, value) {
                 <input type="text" class="petOther" placeholder="ENTER STATUS IN CAPITAL LETTERS" style="display:${statusVal === 'Other' ? 'block' : 'none'};text-transform:uppercase;font-size:12px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;" value="${escAttr(otherVal)}">
               </div>
             </div>
-            <button type="button" class="rm-row" data-rm aria-label="Remove petitioner" title="Remove petitioner">&times;</button>
           </div>
           ${locationHtml(data, "pet")}
           <input type="text" class="party-address petAddress" placeholder="Address" value="${escAttr(data.address || "")}">
@@ -45559,13 +45759,31 @@ function reconcileWorkflowValue(existing, value) {
         </div>`;
       }
 
-      function respRowHtml(data = {}) {
+      function respRowHtml(data = {}, index = 1, total = 1) {
         data = data || {};
         const hasAdvocate = Boolean(
           data.hasAdvocate === true ||
           (data.advocateName && String(data.advocateName).trim() && !["its secretary", "secretary", "tahsildar"].includes(String(data.advocateName).trim().toLowerCase()))
         );
-        return `<div class="dyn-block" data-resprow>
+        return `<div class="dyn-block" data-resprow draggable="true">
+          <div class="party-card-topbar">
+            <div class="party-card-topbar-left">
+              <span class="party-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <circle cx="5" cy="3.5" r="1.5"/><circle cx="11" cy="3.5" r="1.5"/>
+                  <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
+                  <circle cx="5" cy="12.5" r="1.5"/><circle cx="11" cy="12.5" r="1.5"/>
+                </svg>
+              </span>
+              <span class="party-box-badge" data-box-num>#${index}</span>
+              <span class="party-card-title">Respondent ${index}</span>
+            </div>
+            <div class="party-card-topbar-right">
+              <button type="button" class="party-reorder-btn move-up-btn" title="Move Up" aria-label="Move Up" ${index === 1 ? 'disabled' : ''}>▲</button>
+              <button type="button" class="party-reorder-btn move-down-btn" title="Move Down" aria-label="Move Down" ${index === total ? 'disabled' : ''}>▼</button>
+              <button type="button" class="rm-row" data-rm aria-label="Remove respondent" title="Remove respondent">&times;</button>
+            </div>
+          </div>
           <div class="party-card-header">
             <div class="party-identity-fields">
               <input type="text" class="respName party-name-input" placeholder="Respondent / Defendant / Accused name" value="${escAttr(data.name || "")}">
@@ -45574,7 +45792,6 @@ function reconcileWorkflowValue(existing, value) {
                 ${relationshipHtml(data, "resp")}
               </div>
             </div>
-            <button type="button" class="rm-row" data-rm aria-label="Remove respondent" title="Remove respondent">&times;</button>
           </div>
           ${locationHtml(data, "resp")}
           <input type="text" class="party-address respAddress" placeholder="Address" value="${escAttr(data.address || "")}">
@@ -45598,6 +45815,34 @@ function reconcileWorkflowValue(existing, value) {
 
       function wirePartyRow(row, type) {
         if (!row) return;
+
+        const upBtn = row.querySelector(".move-up-btn");
+        if (upBtn) {
+          upBtn.onclick = (e) => {
+            e.preventDefault();
+            const prev = row.previousElementSibling;
+            const selector = type === "pet" ? "[data-petrow]" : "[data-resprow]";
+            if (prev && prev.matches(selector)) {
+              row.parentElement.insertBefore(row, prev);
+              updatePartyBoxNumbers(type);
+              syncPartiesToTextareas();
+            }
+          };
+        }
+        const downBtn = row.querySelector(".move-down-btn");
+        if (downBtn) {
+          downBtn.onclick = (e) => {
+            e.preventDefault();
+            const next = row.nextElementSibling;
+            const selector = type === "pet" ? "[data-petrow]" : "[data-resprow]";
+            if (next && next.matches(selector)) {
+              row.parentElement.insertBefore(next, row);
+              updatePartyBoxNumbers(type);
+              syncPartiesToTextareas();
+            }
+          };
+        }
+
         const toggle = row.querySelector(`.${type}AdvToggle`);
         const advocateFields = row.querySelector(`.${type}AdvFields`);
         if (toggle && advocateFields) {
@@ -45667,6 +45912,7 @@ function reconcileWorkflowValue(existing, value) {
                 other.value = "";
               }
             }
+            updatePartyBoxNumbers(type);
             syncPartiesToTextareas();
           };
         }
@@ -45801,8 +46047,10 @@ function reconcileWorkflowValue(existing, value) {
         const container = document.getElementById("petRows");
         if (!container) return;
         const items = (Array.isArray(list) && list.length > 0) ? list : [{}];
-        container.innerHTML = items.map(item => petRowHtml(item)).join("");
+        container.innerHTML = items.map((item, idx) => petRowHtml(item, idx + 1, items.length)).join("");
         container.querySelectorAll("[data-petrow]").forEach(r => wirePartyRow(r, "pet"));
+        wirePartyContainerDragDrop(container, "pet");
+        updatePartyBoxNumbers("pet");
         syncPartiesToTextareas();
       }
 
@@ -45810,8 +46058,10 @@ function reconcileWorkflowValue(existing, value) {
         const container = document.getElementById("respRows");
         if (!container) return;
         const items = (Array.isArray(list) && list.length > 0) ? list : [{}];
-        container.innerHTML = items.map(item => respRowHtml(item)).join("");
+        container.innerHTML = items.map((item, idx) => respRowHtml(item, idx + 1, items.length)).join("");
         container.querySelectorAll("[data-resprow]").forEach(r => wirePartyRow(r, "resp"));
+        wirePartyContainerDragDrop(container, "resp");
+        updatePartyBoxNumbers("resp");
         syncPartiesToTextareas();
       }
 
@@ -46235,11 +46485,14 @@ function reconcileWorkflowValue(existing, value) {
         if (addPetBtn) {
           addPetBtn.onclick = () => {
             if (petRows) {
+              const currentTotal = petRows.querySelectorAll("[data-petrow]").length;
               const div = document.createElement("div");
-              div.innerHTML = petRowHtml({});
+              div.innerHTML = petRowHtml({}, currentTotal + 1, currentTotal + 1);
               const newRow = div.firstElementChild;
               petRows.appendChild(newRow);
               wirePartyRow(newRow, "pet");
+              wirePartyContainerDragDrop(petRows, "pet");
+              updatePartyBoxNumbers("pet");
               syncPartiesToTextareas();
             }
           };
@@ -46249,11 +46502,14 @@ function reconcileWorkflowValue(existing, value) {
         if (addRespBtn) {
           addRespBtn.onclick = () => {
             if (respRows) {
+              const currentTotal = respRows.querySelectorAll("[data-resprow]").length;
               const div = document.createElement("div");
-              div.innerHTML = respRowHtml({});
+              div.innerHTML = respRowHtml({}, currentTotal + 1, currentTotal + 1);
               const newRow = div.firstElementChild;
               respRows.appendChild(newRow);
               wirePartyRow(newRow, "resp");
+              wirePartyContainerDragDrop(respRows, "resp");
+              updatePartyBoxNumbers("resp");
               syncPartiesToTextareas();
             }
           };
