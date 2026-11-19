@@ -5130,7 +5130,11 @@ dialog::backdrop {
         let backendResolvingPromise = null;
         async function resolveBackendUrl(forceRefresh = false) {
           if (!forceRefresh && cachedBackendUrl !== null) return cachedBackendUrl;
-          if (backendResolvingPromise) return backendResolvingPromise;
+          if (!forceRefresh && backendResolvingPromise) return backendResolvingPromise;
+          if (forceRefresh) {
+            cachedBackendUrl = null;
+            backendResolvingPromise = null;
+          }
 
           backendResolvingPromise = (async () => {
             if (window.location.protocol.startsWith("http")) {
@@ -48466,9 +48470,9 @@ function reconcileWorkflowValue(existing, value) {
           statusText.innerHTML = "<span>Checking local backend server...</span>";
 
           try {
-            const base = await resolveBackendUrl(true);
             const r = await apiFetch("/api/status");
             if (r.ok) {
+              const base = await resolveBackendUrl();
               const targetUrl = base || (window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8000");
               statusEl.style.background = "#f0fdf4";
               statusEl.style.color = "#166534";
@@ -48476,7 +48480,9 @@ function reconcileWorkflowValue(existing, value) {
               statusText.innerHTML = `● <strong>Backend Server Connected:</strong> Ready at <code>${escHtml(targetUrl)}</code>`;
               return true;
             }
-          } catch (_) {}
+          } catch (err) {
+            console.warn("checkServerHealth error:", err);
+          }
 
           statusEl.style.background = "#fef2f2";
           statusEl.style.color = "#991b1b";
