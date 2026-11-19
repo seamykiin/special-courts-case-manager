@@ -789,7 +789,10 @@ def get_pdf_page_count(file_path: str) -> int:
     pdfinfo = get_pdfinfo_path()
     if pdfinfo:
         try:
-            r = subprocess.run([pdfinfo, file_path], capture_output=True, text=True, timeout=5)
+            sub_kwargs = {"capture_output": True, "text": True, "timeout": 5}
+            if sys.platform == "win32":
+                sub_kwargs["creationflags"] = 0x08000000
+            r = subprocess.run([pdfinfo, file_path], **sub_kwargs)
             if r.returncode == 0:
                 m = re.search(r"Pages:\s+(\d+)", r.stdout)
                 if m:
@@ -945,7 +948,10 @@ def extract_pdf_pages_pdftoppm(file_path: str, max_dim: int = 1800) -> list[tupl
     try:
         prefix = os.path.join(temp_dir, "page")
         cmd = [pdftoppm, "-jpeg", "-scale-to", str(max_dim), file_path, prefix]
-        subprocess.run(cmd, capture_output=True, check=True, timeout=60)
+        sub_kwargs = {"capture_output": True, "check": True, "timeout": 60}
+        if sys.platform == "win32":
+            sub_kwargs["creationflags"] = 0x08000000
+        subprocess.run(cmd, **sub_kwargs)
         page_files = sorted(glob.glob(os.path.join(temp_dir, "page-*.jpg")))
         results = []
         num_pages = len(page_files)
@@ -1094,10 +1100,12 @@ def render_document_page_png(file_path: str, page_num: int = 1, max_dim: int = 1
                 total_pages = get_pdf_page_count(file_path)
                 temp_dir = tempfile.gettempdir()
                 prefix = os.path.join(temp_dir, f"pdf_pg_{os.getpid()}_{page_num}")
+                sub_kwargs = {"capture_output": True, "timeout": 30}
+                if sys.platform == "win32":
+                    sub_kwargs["creationflags"] = 0x08000000
                 subprocess.run(
                     [pdftoppm, "-png", "-scale-to", str(max_dim), "-f", str(page_num), "-l", str(page_num), file_path, prefix],
-                    capture_output=True,
-                    timeout=30
+                    **sub_kwargs
                 )
                 candidates = sorted(glob.glob(f"{prefix}-*.png"))
                 if candidates:
@@ -3846,6 +3854,8 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
 
     # Search text: Order sheet block prioritized, fallback to full clean text
     search_text = os_block if (os_block and len(os_block.strip()) > 40) else text_clean
+    # Clean stray 1-2 char noise before extent units (e.g. '442.45 7 \n ಚದರ ಮೀಟರ್' -> '442.45 ಚದರ ಮೀಟರ್')
+    search_text = re.sub(r'(\d+\.\d+)\s+[A-Za-z0-9\u0C80-\u0CFF]{1,2}\s+(?=(?:ಚದರ|sq|Acre|Gunta|ಮೀಟರ್|ಅಡಿ))', r'\1 ', search_text)
 
     extent_patterns = [
         # (pattern, default_unit, is_ac_gun, is_dash, is_dim, spec_bonus)
@@ -3892,15 +3902,16 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             surrounding = ctx_before + " " + ctx_after
 
             # Check if this candidate is the total survey extent (e.g. 'ಒಟ್ಟು ವಿಸ್ತೀರ್ಣ 50 ಎಕರೆ 30 ಗುಂಟೆ')
-            # Check immediate prefix (within 35 chars) to differentiate full total survey area from sub-parcels ('ಪೈಕಿ')
-            imm_before = search_text[max(0, start - 45):start]
-            imm_after = search_text[end:min(len(search_text), end + 80)]
+            # Check immediate prefix to differentiate full total survey area from sub-parcels ('ಪೈಕಿ') and encroached area
+            imm_before = search_text[max(0, start - 50):start]
+            imm_after = search_text[end:min(len(search_text), end + 180)]
             sy_ctx = search_text[max(0, start - 120):start]
 
             is_directly_total = bool(re.search(r'(?:ಒಟ್ಟು\s*ವಿಸ್ತೀರ್ಣ|ಒಟ್ಟು\s*ಅಳತೆ|ಒಟ್ಟು\s*ಜಮೀನು|total\s*(?:extent|area))', imm_before, re.I))
             is_directly_paiki = bool(re.search(r'(?:ಪೈಕಿ|out\s+of)', imm_before, re.I))
             is_intermediate = bool(re.search(r'^\s*(?:ಮತ್ತು|and|,|\+)?\s*(?:ಸರ್ವೆ|sy|\d+|ಒಟ್ಟು\s*\d+)', imm_after, re.I))
             is_directly_encroached = bool(re.search(r'(?:ಒತ್ತುವರಿ|ಒತುವರಿ|ಅಕ್ರಮವಾಗಿ|ಅನಧಿಕೃತವಾಗಿ|ಕಬಳಿಕೆ|encroach|disputed|problem)', imm_after, re.I)) and not is_intermediate
+            is_respondent_encroach = bool(re.search(r'(?:ಎದುರುದಾರರು|respondents?)\s*[\d\sA-Za-z,andtoರಿಂದನೇ]*$', imm_before, re.I))
             is_total_parcel = bool(re.search(r'(?:ಸೇರಿದ\s*ಜಾಗ|ಇಲಾಖೆಗೆ\s*ಸೇರಿದ|ಸರ್ಕಾರದ\s*ಜಾಗ|ಒಟ್ಟು\s*ವಿಸ್ತೀರ್ಣ|total\s*(?:extent|area))', imm_after, re.I))
             has_encroach = bool(re.search(r'(?:ಒತ್ತುವರಿ|ಒತುವರಿ|ಅಕ್ರಮವಾಗಿ|ಅನಧಿಕೃತವಾಗಿ|ಕಬಳಿಕೆ|encroach[\w]*)', surrounding, re.I))
             has_action = bool(re.search(r'(?:ಮಾಡಿಕೊಂಡಿರುವ|ಮಾಡಿದ|ವಿಸ್ತೀರ್ಣ|extent|ಜಾಗ|disputed)', surrounding, re.I))
@@ -3920,11 +3931,13 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
             if is_directly_paiki:
                 score += 150  # In land grabbing proceedings, prioritize the encroached portion (ಪೈಕಿ)
             if is_directly_encroached:
-                score += 200  # Heavily prioritize the problem / encroached extent candidate
+                score += 250  # Heavily prioritize the problem / encroached extent candidate
             elif is_directly_total:
                 score += 10
+            if is_respondent_encroach:
+                score += 150  # Encroached by respondents
             if is_total_parcel and not is_directly_encroached:
-                score -= 80   # Penalize total background area when an encroached sub-portion is present
+                score -= 100  # Penalize total background area when an encroached sub-portion is present
             if matches_sy:
                 score += 120  # Matches specific survey number of the case
             if has_encroach:
@@ -4491,10 +4504,10 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
     # 7. Next Hearing Date (strictly future scheduled hearing date in YYYY-MM-DD)
     # Rule: If there's a quorum keyword above the call on next hearing date, it should go back to the previous call on date.
     call_patterns = [
-        (r'(?i)\b(?:call\s+on|adjourn(?:ed|ment)?\s+to|post(?:ed)?\s+to|re[- ]?list\s+(?:on|to)|fixed\s+for|listed\s+(?:on|to)|next\s+(?:date|hearing)\s*(?:is|on|to)?|hearing\s+on|await\s+report\s+by|by)\s*[:\-]?\s*(\d{1,2})\s*[\./\-]\s*(\d{1,2})\s*[\./\-]\s*(\d{2,4})\b', False),
+        (r'(?i)\b(?:call\s+on|adjourn(?:ed|ment)?\s+to|post(?:ed)?\s+to|re[- ]?list\s+(?:on|to)|fixed\s+for|listed\s+(?:on|to)|next\s+(?:date|hearing)\s*(?:is|on|to)?|hearing\s+on|await\s+report\s+by|(?:appearance|objection|objections|compliance|say|respondents?)\s*(?:by|to|before)|by)\s*[:\-]?\s*(\d{1,2})\s*[\./\-]\s*(\d{1,2})\s*[\./\-]\s*(\d{2,4})\b', False),
         (r'(?:ಮುಂದೂಡಿದೆ|ಕರೆಯಿರಿ|ವಿಚಾರಣೆಗೆ|ಮುಂದಿನ\s*ದಿನಾಂಕ)\s*[:\-]?\s*(\d{1,2})\s*[\./\-]\s*(\d{1,2})\s*[\./\-]\s*(\d{2,4})\b', False),
         (r'(\d{1,2})\s*[\./\-]\s*(\d{1,2})\s*[\./\-]\s*(\d{2,4})\s*(?:ರಂದು\s*ಕರೆಯಿರಿ|ರಂದು\s*ಮುಂದೂಡಿದೆ|ರಂದು\s*ವಿಚಾರಣೆ)', False),
-        (r'(?i)\b(?:call\s+on|adjourn(?:ed|ment)?\s+to|post(?:ed)?\s+to|re[- ]?list\s+(?:on|to)|fixed\s+for|listed\s+(?:on|to)|next\s+(?:date|hearing)\s*(?:is|on|to)?|hearing\s+on|await\s+report\s+by|by)\s*[:\-]?\s*(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})[\s,]+(\d{2,4})\b', True),
+        (r'(?i)\b(?:call\s+on|adjourn(?:ed|ment)?\s+to|post(?:ed)?\s+to|re[- ]?list\s+(?:on|to)|fixed\s+for|listed\s+(?:on|to)|next\s+(?:date|hearing)\s*(?:is|on|to)?|hearing\s+on|await\s+report\s+by|(?:appearance|objection|objections|compliance|say|respondents?)\s*(?:by|to|before)|by)\s*[:\-]?\s*(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})[\s,]+(\d{2,4})\b', True),
     ]
 
     call_candidates = []
@@ -4508,6 +4521,8 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
                     mth = int(m.group(2))
                 y = int(m.group(3))
                 if y < 100: y += 2000
+                if y in (2006, 2046, 2016) and int(cleaned.get("filing_year") or 2020) >= 2020:
+                    y = 2026
                 min_valid_year = int(cleaned.get("filing_year") or 2018)
                 if 1 <= mth <= 12 and 1 <= d <= 31 and (min_valid_year <= y <= 2035):
                     date_iso = f"{y:04d}-{mth:02d}-{d:02d}"
@@ -4521,7 +4536,7 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
                 pass
 
     # Handwritten daily order call pattern with OCR character correction (e.g. Call on8S 125096 -> 05.12.2026, Call on 03.12.2026, etc.)
-    for m in re.finditer(r'(?i)\b(?:call\s*on|adjourn(?:ed|ment)?\s*(?:to|on)|post(?:ed)?\s*(?:to|on)|fixed\s+for)\s*[:\-]?\s*([0-9a-zA-Z]{1,3})[\s./\-]+([0-9a-zA-Z]{1,2})[\s./\-]*([0-9a-zA-Z]{2,4})', text_clean):
+    for m in re.finditer(r'(?i)\b(?:call\s*on|adjourn(?:ed|ment)?\s*(?:to|on)|post(?:ed)?\s*(?:to|on)|fixed\s+for|list\s*(?:the\s*matter)?\s*(?:by|on|before|to)|(?:appearance|objection|objections|hearing|notice|steps|compliance|say|matter|respondents?)\s*(?:by|on|before|to)|by)\s*[:\-]?\s*([0-9a-zA-Z]{1,3})[\s./\-]+([0-9a-zA-Z]{1,2})[\s./\-]*([0-9a-zA-Z]{2,4})', text_clean):
         try:
             d_raw, m_raw, y_raw = m.groups()
             fix = {'s':'5', 'S':'5', 'o':'0', 'O':'0', 'd':'0', 'D':'0', 'l':'1', 'I':'1', 'z':'2', 'Z':'2', 'b':'8', 'B':'8'}
@@ -4532,6 +4547,8 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
                 y_str = "20" + y_str[2:]
             if y_str.endswith("96") and len(y_str) == 4:
                 y_str = y_str[:-2] + "26"
+            if y_str in ("2006", "2046", "2016", "06", "46") and int(cleaned.get("filing_year") or 2020) >= 2020:
+                y_str = "2026"
             d = int(d_str)
             if d > 31 and str(d_str).startswith(('8', '9')):
                 d = int(str(d_str)[1:])
@@ -4642,8 +4659,13 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
         # Step 1: Look at the text window immediately above the hearing date (expanded to 1000 chars)
         window_above = raw_clean_text[max(0, target_pos - 1000) : target_pos]
 
+        # Immediate purpose above call date (e.g. 'For appearance and objection of respondents by...')
+        imm_call_win = window_above[-250:] if len(window_above) > 250 else window_above
+        if re.search(r'(?i)\b(?:for\s+)?appearance\s+and\s+objection\b', imm_call_win):
+            assigned_sub_stage = "Appearance and Objection"
+            assigned_stage_group = "Objections / Pleadings"
         # Priority Rule: If there is notice to respondent in the summary of the sub stage, take that only!
-        if NOTICE_TO_RESPONDENT_REGEX.search(window_above):
+        elif NOTICE_TO_RESPONDENT_REGEX.search(window_above):
             assigned_sub_stage = "Notice to Respondent"
             assigned_stage_group = "Notice / Summons / Service"
         else:
@@ -5025,14 +5047,18 @@ def group_extracted_pages(results: list[dict]) -> list[dict]:
                 if v and not target.get(k):
                     target[k] = v
                 elif k == "hearing_date" and v:
-                    target[k] = v
-                    if ext.get("stage"):
-                        target["stage"] = ext["stage"]
-                        target["currentStage"] = ext["stage"]
-                        target["sub_stage"] = ext["stage"]
-                        if ext.get("stage_group"):
-                            target["stage_group"] = ext["stage_group"]
-                            target["stageGroup"] = ext["stage_group"]
+                    old_date = str(target.get("hearing_date") or "").strip()
+                    new_date = str(v).strip()
+                    # Always take the next hearing date which is the latest / last chronologically
+                    if not old_date or new_date >= old_date:
+                        target[k] = v
+                        if ext.get("stage"):
+                            target["stage"] = ext["stage"]
+                            target["currentStage"] = ext["stage"]
+                            target["sub_stage"] = ext["stage"]
+                            if ext.get("stage_group"):
+                                target["stage_group"] = ext["stage_group"]
+                                target["stageGroup"] = ext["stage_group"]
                 elif k == "stage" and v and (
                     target.get(k) in ("", "Hearing", "Other", "Orders", "Appearance of Accused", "Sworn Statement")
                     or "notice" in str(v).lower()
