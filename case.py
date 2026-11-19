@@ -1328,7 +1328,7 @@ def get_api_settings() -> dict:
     """Retrieves API and vision engine configuration from disk, DB, and environment."""
     defaults = {
         "gemini_api_key": os.environ.get("GEMINI_API_KEY", ""),
-        "gemini_model": "gemini-2.5-flash",
+        "gemini_model": "gemini-3-flash-preview",
         "default_engine": "gemini" if os.environ.get("GEMINI_API_KEY") else "ocr",
     }
     
@@ -1393,7 +1393,8 @@ def save_api_settings(new_settings: dict) -> dict:
         conn.execute("CREATE TABLE IF NOT EXISTS custom_options (field_key TEXT PRIMARY KEY, field_value TEXT)")
         for k in ("gemini_api_key", "gemini_model", "default_engine"):
             if k in current:
-                conn.execute("INSERT OR REPLACE INTO custom_options (field_key, field_value) VALUES (?, ?)", (k, current[k]))
+                conn.execute("DELETE FROM custom_options WHERE field_key = ?", (k,))
+                conn.execute("INSERT INTO custom_options (field_key, field_value) VALUES (?, ?)", (k, current[k]))
         conn.commit()
         conn.close()
     except Exception as e:
@@ -1409,9 +1410,9 @@ def test_gemini_connection(api_key: str = "", model_name: str = "") -> tuple[boo
     if not key:
         return False, "Google Gemini API Key is missing. Please enter your API Key."
 
-    model = model_name or settings.get("gemini_model", "gemini-2.5-flash")
+    model = model_name or settings.get("gemini_model", "gemini-3-flash-preview")
     if not model or model.lower() in ("tesseract", "ocr", "qwen2.5vl:7b"):
-        model = "gemini-2.5-flash"
+        model = "gemini-3-flash-preview"
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
     payload = {
@@ -1461,9 +1462,9 @@ def query_gemini_vision(image_b64: str, api_key: str = "", model_name: str = "")
     if not key:
         raise ValueError("Google Gemini API Key is not configured. Please enter your API Key in Settings.")
 
-    model = model_name or settings.get("gemini_model", "gemini-2.5-flash")
+    model = model_name or settings.get("gemini_model", "gemini-3-flash-preview")
     if not model or model.lower() in ("tesseract", "ocr", "qwen2.5vl:7b"):
-        model = "gemini-2.5-flash"
+        model = "gemini-3-flash-preview"
 
     clean_b64 = image_b64.strip()
     mime_type = "image/jpeg"
@@ -5176,7 +5177,7 @@ def process_frame(label: str, file_path: str, b64: str, engine: str = "hybrid", 
     # 1. Google Gemini Vision pass
     if active_engine in ("gemini", "google", "cloud") or (active_engine == "hybrid" and has_gemini):
         try:
-            g_model = model_name if (model_name and "gemini" in model_name.lower()) else settings.get("gemini_model", "gemini-2.5-flash")
+            g_model = model_name if (model_name and "gemini" in model_name.lower()) else settings.get("gemini_model", "gemini-3-flash-preview")
             log_ocr(f"Frame '{label}': Querying Google Gemini Vision API using '{g_model}'...")
             raw_gemini, gemini_json = query_gemini_vision(b64, model_name=g_model)
             if raw_gemini.strip():

@@ -1062,7 +1062,7 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
                 },
                 "gemini": {
                     "configured": gemini_configured,
-                    "model": settings.get("gemini_model", "gemini-2.5-flash"),
+                    "model": settings.get("gemini_model", "gemini-3-flash-preview"),
                     "default_engine": settings.get("default_engine", "gemini" if gemini_configured else "ocr")
                 }
             }
@@ -1087,13 +1087,13 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
             res = {
                 "gemini_api_key_configured": bool(key),
                 "gemini_api_key_masked": mask_api_key(key),
-                "gemini_model": settings.get("gemini_model", "gemini-2.5-flash"),
+                "gemini_model": settings.get("gemini_model", "gemini-3-flash-preview"),
                 "default_engine": settings.get("default_engine", "gemini" if key else "ocr"),
                 "available_models": [
-                    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash (Recommended - Fastest & Most Accurate)"},
-                    {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash (Fast Vision)"},
-                    {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash (Legacy Fast)"},
-                    {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro (Deep Reasoning)"}
+                    {"id": "gemini-3-flash-preview", "name": "Gemini 3 Flash Preview (Recommended - Ultra-Fast & Highly Accurate)"},
+                    {"id": "gemini-3.8-flash", "name": "Gemini 3.8 Flash"},
+                    {"id": "gemini-3.5-flash", "name": "Gemini 3.5 Flash"},
+                    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash"}
                 ]
             }
             self.send_response(200)
@@ -1117,7 +1117,7 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
                 "success": True,
                 "gemini_api_key_configured": bool(key),
                 "gemini_api_key_masked": mask_api_key(key),
-                "gemini_model": saved.get("gemini_model", "gemini-2.5-flash"),
+                "gemini_model": saved.get("gemini_model", "gemini-3-flash-preview"),
                 "default_engine": saved.get("default_engine", "gemini" if key else "ocr"),
                 "message": "AI settings saved successfully."
             }
@@ -1197,7 +1197,7 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
 
             saved_files = []
             engine = default_eng
-            model_name = settings.get("gemini_model", "gemini-2.5-flash") if engine == "gemini" else "qwen2.5vl:7b"
+            model_name = settings.get("gemini_model", "gemini-3-flash-preview") if engine == "gemini" else "qwen2.5vl:7b"
 
             if "multipart/form-data" in content_type:
                 boundary = content_type.split("boundary=")[-1].strip()
@@ -1230,7 +1230,7 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
             elif "application/json" in content_type:
                 data = json.loads(body.decode("utf-8"))
                 engine = data.get("engine", default_eng)
-                model_name = data.get("model", settings.get("gemini_model", "gemini-2.5-flash") if engine == "gemini" else "qwen2.5vl:7b")
+                model_name = data.get("model", settings.get("gemini_model", "gemini-3-flash-preview") if engine == "gemini" else "qwen2.5vl:7b")
                 files_data = data.get("files", [])
                 temp_dir = tempfile.gettempdir()
                 for item in files_data:
@@ -1247,7 +1247,7 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
                         saved_files.append((fn, temp_path))
 
             if engine == "gemini" and (not model_name or "gemini" not in model_name.lower()):
-                model_name = settings.get("gemini_model", "gemini-2.5-flash")
+                model_name = settings.get("gemini_model", "gemini-3-flash-preview")
 
             log_ocr(f"[/api/scan] Incoming request: {len(saved_files)} file(s), engine='{engine}', model='{model_name}'")
 

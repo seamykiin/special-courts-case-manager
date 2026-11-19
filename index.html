@@ -5153,21 +5153,31 @@ dialog::backdrop {
               candidates.push(`http://localhost:${p}`);
             }
 
-            for (const base of candidates) {
+            const probeCandidate = async (base) => {
+              const ctrl = new AbortController();
+              const tid = setTimeout(() => ctrl.abort(), 1200);
               try {
-                const ctrl = new AbortController();
-                const tid = setTimeout(() => ctrl.abort(), 1500);
                 const r = await fetch(`${base}/api/status`, { signal: ctrl.signal });
                 clearTimeout(tid);
                 if (r.ok) {
                   const data = await r.json();
                   if (data && (data.status === "ready" || data.tesseract !== undefined)) {
-                    cachedBackendUrl = base;
-                    return cachedBackendUrl;
+                    return base;
                   }
                 }
-              } catch (_) {}
-            }
+              } catch (_) {
+                clearTimeout(tid);
+              }
+              throw new Error("Port not responsive");
+            };
+
+            try {
+              const winner = await Promise.any(candidates.map(c => probeCandidate(c)));
+              if (winner) {
+                cachedBackendUrl = winner;
+                return cachedBackendUrl;
+              }
+            } catch (_) {}
 
             cachedBackendUrl = window.location.protocol.startsWith("http") ? "" : "http://127.0.0.1:8000";
             return cachedBackendUrl;
@@ -5190,6 +5200,24 @@ dialog::backdrop {
         }
         window.apiFetch = apiFetch;
         resolveBackendUrl().catch(() => {});
+
+        // Browser Security Notice for file:/// protocol (Modern Web Guidance)
+        if (window.location.protocol === "file:") {
+          window.addEventListener("DOMContentLoaded", () => {
+            if (document.getElementById("fileProtocolNoticeBanner")) return;
+            const notice = document.createElement("div");
+            notice.id = "fileProtocolNoticeBanner";
+            notice.style.cssText = "position:sticky;top:0;z-index:99999;background:#fef3c7;color:#92400e;border-bottom:2px solid #f59e0b;padding:10px 16px;font-size:13px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.1);font-family:system-ui,-apple-system,sans-serif;";
+            notice.innerHTML = `
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:18px;">⚠️</span>
+                <span><strong>Running via file:/// protocol:</strong> Web browsers block local files from connecting to local backend servers. Please open via the running server: <a href="http://127.0.0.1:8000" target="_blank" style="color:#b45309;font-weight:700;text-decoration:underline;margin:0 4px;">http://127.0.0.1:8000</a> or <a href="http://127.0.0.1:8001" target="_blank" style="color:#b45309;font-weight:700;text-decoration:underline;margin:0 4px;">http://127.0.0.1:8001</a></span>
+              </div>
+              <button onclick="this.parentElement.remove()" style="background:transparent;border:none;font-size:16px;cursor:pointer;color:#92400e;font-weight:bold;padding:0 4px;" title="Dismiss">&times;</button>
+            `;
+            document.body.prepend(notice);
+          });
+        }
 
         const DEFAULT_OPERATORS = {
           admin: {
@@ -47785,10 +47813,10 @@ function reconcileWorkflowValue(existing, value) {
                   </select>
                   <strong style="margin-left:6px;">Model:</strong>
                   <select id="scanOllamaModel" style="padding:4px 8px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:4px;">
-                    <option value="gemini-2.5-flash">gemini-2.5-flash (Recommended)</option>
-                    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-                    <option value="gemini-1.5-flash">gemini-1.5-flash</option>
-                    <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+                    <option value="gemini-3-flash-preview">gemini-3-flash-preview (Recommended)</option>
+                    <option value="gemini-3.8-flash">gemini-3.8-flash</option>
+                    <option value="gemini-3.5-flash">gemini-3.5-flash</option>
+                    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
                     <option value="qwen2.5vl:7b">qwen2.5vl:7b (Ollama)</option>
                   </select>
                   <button type="button" class="btn-case-action" onclick="openAiSettingsModal()" style="font-size:11px;padding:3px 8px;" title="Configure Gemini API Key">⚙️ AI Settings</button>
@@ -48356,10 +48384,10 @@ function reconcileWorkflowValue(existing, value) {
                 <div class="field" style="margin-bottom:16px;">
                   <label for="aiSettingsModelSelect" style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;color:#334155;margin-bottom:6px;letter-spacing:0.5px;">Gemini Vision Model</label>
                   <select id="aiSettingsModelSelect" style="width:100%;padding:8px 10px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:6px;background:#ffffff;box-sizing:border-box;">
-                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended - Fastest &amp; Most Accurate)</option>
-                    <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fast Multimodal Vision)</option>
-                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (Standard Fast Vision)</option>
-                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Reasoning &amp; Complex Handwriting)</option>
+                    <option value="gemini-3-flash-preview">Gemini 3 Flash Preview (Recommended - Ultra-Fast &amp; Accurate)</option>
+                    <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                    <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                   </select>
                 </div>
 
@@ -48440,13 +48468,13 @@ function reconcileWorkflowValue(existing, value) {
             statusEl.style.background = "#eff6ff";
             statusEl.style.color = "#1e40af";
             statusEl.style.border = "1px solid #bfdbfe";
-            statusText.innerHTML = "<span>Checking local backend server (http://127.0.0.1:8000)...</span>";
+            statusText.innerHTML = "<span>Checking local backend server...</span>";
 
             try {
               const base = await resolveBackendUrl(true);
-              const targetUrl = base || (window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8000");
               const r = await apiFetch("/api/status");
               if (r.ok) {
+                const targetUrl = base || (window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8000");
                 statusEl.style.background = "#f0fdf4";
                 statusEl.style.color = "#166534";
                 statusEl.style.border = "1px solid #bbf7d0";
@@ -48458,7 +48486,12 @@ function reconcileWorkflowValue(existing, value) {
             statusEl.style.background = "#fef2f2";
             statusEl.style.color = "#991b1b";
             statusEl.style.border = "1px solid #fecaca";
-            statusText.innerHTML = `🔴 <strong>Backend Server Offline:</strong> Cannot reach <code>http://127.0.0.1:8000</code>. Please start the server by launching <strong>LGCCaseRegister.exe</strong> or running <code>python3 server.py</code>.`;
+            if (window.location.protocol === "file:") {
+              statusText.innerHTML = `⚠️ <strong>Browser Security Block (file:///):</strong> You opened <code>index.html</code> directly from disk. Web browsers block local files from connecting to local servers.<br><span style="margin-top:6px;display:inline-block;font-size:12px;">👉 Please open in your browser address bar: <a href="http://127.0.0.1:8000" target="_blank" style="color:#1d4ed8;font-weight:700;text-decoration:underline;">http://127.0.0.1:8000</a> or <a href="http://127.0.0.1:8001" target="_blank" style="color:#1d4ed8;font-weight:700;text-decoration:underline;">http://127.0.0.1:8001</a></span>`;
+            } else {
+              const currentOrigin = window.location.origin;
+              statusText.innerHTML = `🔴 <strong>Backend Server Offline:</strong> Cannot reach <code>${escHtml(currentOrigin)}</code>.<br><span style="margin-top:4px;display:inline-block;font-size:12px;">Start the server with <strong>LGCCaseRegister.exe</strong> or <code>python3 server.py</code>.<br>If running on another port, open: <a href="http://127.0.0.1:8000" target="_blank" style="color:#1d4ed8;font-weight:600;">Port 8000</a> | <a href="http://127.0.0.1:8001" target="_blank" style="color:#1d4ed8;font-weight:600;">Port 8001</a></span>`;
+            }
             return false;
           };
 
@@ -48622,30 +48655,7 @@ function reconcileWorkflowValue(existing, value) {
         if (saveAlert) saveAlert.style.display = "none";
 
         // Check server health
-        const statusEl = document.getElementById("aiSettingsServerStatus");
-        const statusText = document.getElementById("aiSettingsServerStatusText");
-        if (statusEl && statusText) {
-          apiFetch("/api/status").then(async r => {
-            if (r.ok) {
-              const base = await resolveBackendUrl();
-              const targetUrl = base || (window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8000");
-              statusEl.style.background = "#f0fdf4";
-              statusEl.style.color = "#166534";
-              statusEl.style.border = "1px solid #bbf7d0";
-              statusText.innerHTML = `● <strong>Backend Server Connected:</strong> Ready at <code>${escHtml(targetUrl)}</code>`;
-            } else {
-              throw new Error("Server status returned not ok");
-            }
-          }).catch(async () => {
-            let base = await resolveBackendUrl();
-            if (!base && !window.location.protocol.startsWith("http")) base = "http://127.0.0.1:8000";
-            const target = base || window.location.origin;
-            statusEl.style.background = "#fef2f2";
-            statusEl.style.color = "#991b1b";
-            statusEl.style.border = "1px solid #fecaca";
-            statusText.innerHTML = `🔴 <strong>Backend Server Offline:</strong> Cannot reach <code>${escHtml(target)}</code>. Start the server via <strong>LGCCaseRegister.exe</strong> or <code>python3 server.py</code>.`;
-          });
-        }
+        checkServerHealth();
 
         modal.showModal();
       }
