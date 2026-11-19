@@ -5125,6 +5125,72 @@ dialog::backdrop {
         window.escHtml = window.escHtml || escHtml;
         window.escAttr = window.escAttr || escAttr;
 
+        // Dynamic Backend API Host Resolver & Universal Fetcher
+        let cachedBackendUrl = null;
+        let backendResolvingPromise = null;
+        async function resolveBackendUrl(forceRefresh = false) {
+          if (!forceRefresh && cachedBackendUrl !== null) return cachedBackendUrl;
+          if (backendResolvingPromise) return backendResolvingPromise;
+
+          backendResolvingPromise = (async () => {
+            if (window.location.protocol.startsWith("http")) {
+              try {
+                const ctrl = new AbortController();
+                const tid = setTimeout(() => ctrl.abort(), 2000);
+                const r = await fetch("/api/status", { signal: ctrl.signal });
+                clearTimeout(tid);
+                if (r.ok) {
+                  cachedBackendUrl = "";
+                  return "";
+                }
+              } catch (_) {}
+            }
+
+            const standardPorts = [8000, 8001, 8080];
+            const candidates = [];
+            for (const p of standardPorts) {
+              candidates.push(`http://127.0.0.1:${p}`);
+              candidates.push(`http://localhost:${p}`);
+            }
+
+            for (const base of candidates) {
+              try {
+                const ctrl = new AbortController();
+                const tid = setTimeout(() => ctrl.abort(), 1500);
+                const r = await fetch(`${base}/api/status`, { signal: ctrl.signal });
+                clearTimeout(tid);
+                if (r.ok) {
+                  const data = await r.json();
+                  if (data && (data.status === "ready" || data.tesseract !== undefined)) {
+                    cachedBackendUrl = base;
+                    return cachedBackendUrl;
+                  }
+                }
+              } catch (_) {}
+            }
+
+            cachedBackendUrl = window.location.protocol.startsWith("http") ? "" : "http://127.0.0.1:8000";
+            return cachedBackendUrl;
+          })().finally(() => {
+            backendResolvingPromise = null;
+          });
+
+          return backendResolvingPromise;
+        }
+        window.resolveBackendUrl = resolveBackendUrl;
+
+        async function apiFetch(endpoint, options = {}) {
+          let base = await resolveBackendUrl();
+          const clean = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+          if (!base && !window.location.protocol.startsWith("http")) {
+            base = "http://127.0.0.1:8000";
+          }
+          const url = base ? `${base}${clean}` : clean;
+          return fetch(url, options);
+        }
+        window.apiFetch = apiFetch;
+        resolveBackendUrl().catch(() => {});
+
         const DEFAULT_OPERATORS = {
           admin: {
             username: "admin",
@@ -5192,7 +5258,7 @@ dialog::backdrop {
 
           // Async sync to server if running
           try {
-            fetch("/api/users", {
+            apiFetch("/api/users", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(ops)
@@ -5214,7 +5280,7 @@ dialog::backdrop {
 
         async function syncOperatorsFromServer() {
           try {
-            const res = await fetch("/api/users");
+            const res = await apiFetch("/api/users");
             if (res.ok) {
               const serverOps = await res.json();
               if (serverOps && typeof serverOps === "object" && Object.keys(serverOps).length > 0) {
@@ -5304,7 +5370,7 @@ dialog::backdrop {
 
           // Attempt server authentication first
           try {
-            const resp = await fetch("/api/login", {
+            const resp = await apiFetch("/api/login", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ username: u, password: p })
@@ -5579,7 +5645,7 @@ dialog::backdrop {
 
           // Attempt backend update
           try {
-            const resp = await fetch("/api/change-password", {
+            const resp = await apiFetch("/api/change-password", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -5956,7 +6022,7 @@ dialog::backdrop {
             // Sync cases with server if available
             if (key === "lgc-cases") {
               try {
-                fetch("/api/cases", {
+                apiFetch("/api/cases", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: typeof value === "string" ? value : JSON.stringify(value)
@@ -5989,7 +6055,7 @@ dialog::backdrop {
                 }
               } catch(_) {}
               try {
-                fetch("/api/cases?id=" + encodeURIComponent(caseId), { method: "DELETE" }).catch(() => {});
+                apiFetch("/api/cases?id=" + encodeURIComponent(caseId), { method: "DELETE" }).catch(() => {});
               } catch(_) {}
             }
             return { deleted: true };
@@ -6601,7 +6667,7 @@ function reconcileWorkflowValue(existing, value) {
       // ---------- Storage ----------
       async function loadCases() {
         try {
-          const apiRes = await fetch("/api/cases").then(r => r.ok ? r.json() : null).catch(() => null);
+          const apiRes = await apiFetch("/api/cases").then(r => r.ok ? r.json() : null).catch(() => null);
           if (Array.isArray(apiRes) && apiRes.length > 0) {
             state.cases = apiRes;
             await saveCases();
@@ -47070,58 +47136,9 @@ function reconcileWorkflowValue(existing, value) {
       let isFindingPdf = false;
 
       // Dynamic Backend API Host Resolver
-      let cachedBackendUrl = null;
-      let backendResolvingPromise = null;
       async function resolveBackendUrl(forceRefresh = false) {
-        if (!forceRefresh && cachedBackendUrl !== null) return cachedBackendUrl;
-        if (backendResolvingPromise) return backendResolvingPromise;
-
-        backendResolvingPromise = (async () => {
-          if (window.location.protocol.startsWith("http")) {
-            try {
-              const ctrl = new AbortController();
-              const tid = setTimeout(() => ctrl.abort(), 2500);
-              const r = await fetch("/api/status", { signal: ctrl.signal });
-              clearTimeout(tid);
-              if (r.ok) {
-                cachedBackendUrl = "";
-                return "";
-              }
-            } catch (_) {}
-          }
-
-          const standardPorts = [8000, 8001, 8080];
-          const candidates = [];
-          for (const p of standardPorts) {
-            candidates.push(`http://127.0.0.1:${p}`);
-            candidates.push(`http://localhost:${p}`);
-          }
-
-          for (const base of candidates) {
-            try {
-              const ctrl = new AbortController();
-              const tid = setTimeout(() => ctrl.abort(), 2000);
-              const r = await fetch(`${base}/api/status`, { signal: ctrl.signal });
-              clearTimeout(tid);
-              if (r.ok) {
-                const data = await r.json();
-                if (data && (data.status === "ready" || data.tesseract !== undefined)) {
-                  cachedBackendUrl = base;
-                  return cachedBackendUrl;
-                }
-              }
-            } catch (_) {}
-          }
-
-          cachedBackendUrl = window.location.protocol.startsWith("http") ? "" : "http://127.0.0.1:8000";
-          return cachedBackendUrl;
-        })().finally(() => {
-          backendResolvingPromise = null;
-        });
-
-        return backendResolvingPromise;
+        return window.resolveBackendUrl(forceRefresh);
       }
-      resolveBackendUrl().catch(() => {});
 
       function switchMobileSplitView(view) {
         const viewRoot = document.getElementById("viewRoot");
@@ -47924,7 +47941,7 @@ function reconcileWorkflowValue(existing, value) {
           statusBadge.style.color = "#92400e";
         });
 
-        fetch("/api/settings").then(r => r.json()).then(st => {
+        apiFetch("/api/settings").then(r => r.json()).then(st => {
           const sel = document.getElementById("scanEngineChoice");
           if (sel && st.default_engine) sel.value = st.default_engine;
           const mod = document.getElementById("scanOllamaModel");
@@ -48309,6 +48326,12 @@ function reconcileWorkflowValue(existing, value) {
               </div>
 
               <div class="modal-body" style="padding:20px;max-height:80vh;overflow-y:auto;">
+                <!-- Backend Server Connection Status -->
+                <div id="aiSettingsServerStatus" style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:6px;font-size:12px;margin-bottom:14px;background:#f1f5f9;border:1px solid #cbd5e1;gap:8px;flex-wrap:wrap;">
+                  <span id="aiSettingsServerStatusText">Checking backend server connection...</span>
+                  <button type="button" class="btn-case-action" id="aiSettingsRetryServerBtn" style="font-size:11px;padding:2px 8px;">🔄 Recheck Server</button>
+                </div>
+
                 <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:12.5px;color:#1e40af;line-height:1.5;">
                   <strong>🚀 High-Accuracy Extraction via Google Gemini Vision</strong><br>
                   Connect your Google Gemini API key to achieve near-100% extraction accuracy on complex bilingual (Kannada + English) court order sheets, multi-party petitions, encroached land schedules, and handwritten margin notes.
@@ -48408,6 +48431,41 @@ function reconcileWorkflowValue(existing, value) {
             }
           };
 
+          const checkServerHealth = async () => {
+            const statusEl = document.getElementById("aiSettingsServerStatus");
+            const statusText = document.getElementById("aiSettingsServerStatusText");
+            if (!statusEl || !statusText) return false;
+
+            statusEl.style.display = "flex";
+            statusEl.style.background = "#eff6ff";
+            statusEl.style.color = "#1e40af";
+            statusEl.style.border = "1px solid #bfdbfe";
+            statusText.innerHTML = "<span>Checking local backend server (http://127.0.0.1:8000)...</span>";
+
+            try {
+              const base = await resolveBackendUrl(true);
+              const targetUrl = base || (window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8000");
+              const r = await apiFetch("/api/status");
+              if (r.ok) {
+                statusEl.style.background = "#f0fdf4";
+                statusEl.style.color = "#166534";
+                statusEl.style.border = "1px solid #bbf7d0";
+                statusText.innerHTML = `● <strong>Backend Server Connected:</strong> Ready at <code>${escHtml(targetUrl)}</code>`;
+                return true;
+              }
+            } catch (_) {}
+
+            statusEl.style.background = "#fef2f2";
+            statusEl.style.color = "#991b1b";
+            statusEl.style.border = "1px solid #fecaca";
+            statusText.innerHTML = `🔴 <strong>Backend Server Offline:</strong> Cannot reach <code>http://127.0.0.1:8000</code>. Please start the server by launching <strong>LGCCaseRegister.exe</strong> or running <code>python3 server.py</code>.`;
+            return false;
+          };
+
+          document.getElementById("aiSettingsRetryServerBtn").onclick = () => {
+            checkServerHealth();
+          };
+
           document.getElementById("aiSettingsTestBtn").onclick = async () => {
             const btn = document.getElementById("aiSettingsTestBtn");
             const resBox = document.getElementById("aiSettingsTestResult");
@@ -48423,7 +48481,7 @@ function reconcileWorkflowValue(existing, value) {
             resBox.innerHTML = "<span>Connecting to Google Gemini API...</span>";
 
             try {
-              const resp = await fetch("/api/test-gemini", {
+              const resp = await apiFetch("/api/test-gemini", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -48444,10 +48502,13 @@ function reconcileWorkflowValue(existing, value) {
                 resBox.innerHTML = `<strong>✗ Connection Failed:</strong> ${escHtml(data.message)}`;
               }
             } catch (err) {
+              let base = await resolveBackendUrl();
+              if (!base && !window.location.protocol.startsWith("http")) base = "http://127.0.0.1:8000";
+              const target = base || window.location.origin;
               resBox.style.background = "#fef2f2";
               resBox.style.color = "#991b1b";
               resBox.style.border = "1px solid #fecaca";
-              resBox.innerHTML = `<strong>✗ Network Error:</strong> ${escHtml(err.message)}`;
+              resBox.innerHTML = `<strong>✗ Server Connection Failed:</strong> Could not reach local backend at <code>${escHtml(target)}</code>.<br><span style="font-size:11.5px;margin-top:4px;display:block;">Ensure the backend application is running (launch <strong>LGCCaseRegister.exe</strong> or run <code>python3 server.py</code> in terminal).</span>`;
             } finally {
               btn.disabled = false;
               btn.textContent = "🔌 Test Connection";
@@ -48466,7 +48527,7 @@ function reconcileWorkflowValue(existing, value) {
             alertBox.style.display = "none";
 
             try {
-              const resp = await fetch("/api/settings", {
+              const resp = await apiFetch("/api/settings", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -48508,11 +48569,14 @@ function reconcileWorkflowValue(existing, value) {
                 alertBox.innerHTML = `<strong>✗ Error saving settings:</strong> ${escHtml(data.error || "Unknown error")}`;
               }
             } catch (err) {
+              let base = await resolveBackendUrl();
+              if (!base && !window.location.protocol.startsWith("http")) base = "http://127.0.0.1:8000";
+              const target = base || window.location.origin;
               alertBox.style.display = "block";
               alertBox.style.background = "#fef2f2";
               alertBox.style.color = "#991b1b";
               alertBox.style.border = "1px solid #fecaca";
-              alertBox.innerHTML = `<strong>✗ Failed to connect to server:</strong> ${escHtml(err.message)}`;
+              alertBox.innerHTML = `<strong>✗ Cannot Save Settings:</strong> Local backend at <code>${escHtml(target)}</code> is not responding.<br><span style="font-size:11.5px;margin-top:4px;display:block;">Please make sure the backend process (<code>python3 server.py</code> or <code>LGCCaseRegister.exe</code>) is running.</span>`;
             } finally {
               btn.disabled = false;
               btn.textContent = "💾 Save Settings";
@@ -48521,7 +48585,7 @@ function reconcileWorkflowValue(existing, value) {
         }
 
         try {
-          const resp = await fetch("/api/settings");
+          const resp = await apiFetch("/api/settings");
           const settings = await resp.json();
           const badge = document.getElementById("aiSettingsKeyBadge");
           const keyInput = document.getElementById("aiSettingsApiKeyInput");
@@ -48556,6 +48620,32 @@ function reconcileWorkflowValue(existing, value) {
         if (testRes) testRes.style.display = "none";
         const saveAlert = document.getElementById("aiSettingsSaveAlert");
         if (saveAlert) saveAlert.style.display = "none";
+
+        // Check server health
+        const statusEl = document.getElementById("aiSettingsServerStatus");
+        const statusText = document.getElementById("aiSettingsServerStatusText");
+        if (statusEl && statusText) {
+          apiFetch("/api/status").then(async r => {
+            if (r.ok) {
+              const base = await resolveBackendUrl();
+              const targetUrl = base || (window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8000");
+              statusEl.style.background = "#f0fdf4";
+              statusEl.style.color = "#166534";
+              statusEl.style.border = "1px solid #bbf7d0";
+              statusText.innerHTML = `● <strong>Backend Server Connected:</strong> Ready at <code>${escHtml(targetUrl)}</code>`;
+            } else {
+              throw new Error("Server status returned not ok");
+            }
+          }).catch(async () => {
+            let base = await resolveBackendUrl();
+            if (!base && !window.location.protocol.startsWith("http")) base = "http://127.0.0.1:8000";
+            const target = base || window.location.origin;
+            statusEl.style.background = "#fef2f2";
+            statusEl.style.color = "#991b1b";
+            statusEl.style.border = "1px solid #fecaca";
+            statusText.innerHTML = `🔴 <strong>Backend Server Offline:</strong> Cannot reach <code>${escHtml(target)}</code>. Start the server via <strong>LGCCaseRegister.exe</strong> or <code>python3 server.py</code>.`;
+          });
+        }
 
         modal.showModal();
       }
@@ -48756,7 +48846,7 @@ function reconcileWorkflowValue(existing, value) {
           if (countEl) countEl.textContent = batchCases.length;
         }
 
-        fetch("/api/settings").then(r => r.json()).then(st => {
+        apiFetch("/api/settings").then(r => r.json()).then(st => {
           const sel = document.getElementById("batchEngineSelect");
           if (sel && st.default_engine) sel.value = st.default_engine;
         }).catch(() => {});
