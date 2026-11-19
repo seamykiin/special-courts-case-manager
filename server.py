@@ -39,11 +39,7 @@ from case import (
     summarize_call_description_from_window,
     infer_stage_group_from_description,
     log_ocr,
-    get_recent_logs,
-    get_api_settings,
-    save_api_settings,
-    test_gemini_connection,
-    mask_api_key
+    get_recent_logs
 )
 
 # Safe streams for windowed (no-console) execution
@@ -444,9 +440,6 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/logs":
             self.handle_logs()
             return
-        elif path == "/api/settings":
-            self.handle_get_settings()
-            return
         return super().do_GET()
 
     def do_POST(self):
@@ -454,12 +447,6 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
         path = parsed.path
         if path.startswith("/api/scan"):
             self.handle_scan()
-            return
-        elif path == "/api/settings":
-            self.handle_save_settings()
-            return
-        elif path == "/api/test-gemini":
-            self.handle_test_gemini()
             return
         elif path.startswith("/api/pdf-folder"):
             self.handle_set_pdf_folder()
@@ -1048,8 +1035,6 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
         try:
             is_tess, tess_path = check_tesseract_available()
             is_ollama, models = check_ollama_available()
-            settings = get_api_settings()
-            gemini_configured = bool(settings.get("gemini_api_key"))
             res = {
                 "status": "ready",
                 "tesseract": {
@@ -1059,11 +1044,6 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
                 "ollama": {
                     "available": is_ollama,
                     "models": models or []
-                },
-                "gemini": {
-                    "configured": gemini_configured,
-                    "model": settings.get("gemini_model", "gemini-3-flash-preview"),
-                    "default_engine": settings.get("default_engine", "gemini" if gemini_configured else "ocr")
                 }
             }
             self.send_response(200)
@@ -1079,82 +1059,6 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json.dumps({"models": models or []}).encode("utf-8"))
-
-    def handle_get_settings(self):
-        try:
-            settings = get_api_settings()
-            key = settings.get("gemini_api_key", "")
-            res = {
-                "gemini_api_key_configured": bool(key),
-                "gemini_api_key_masked": mask_api_key(key),
-                "gemini_model": settings.get("gemini_model", "gemini-3-flash-preview"),
-                "default_engine": settings.get("default_engine", "gemini" if key else "ocr"),
-                "available_models": [
-                    {"id": "gemini-3-flash-preview", "name": "Gemini 3 Flash Preview (Recommended - Ultra-Fast & Highly Accurate)"},
-                    {"id": "gemini-3.8-flash", "name": "Gemini 3.8 Flash"},
-                    {"id": "gemini-3.5-flash", "name": "Gemini 3.5 Flash"},
-                    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash"}
-                ]
-            }
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps(res).encode("utf-8"))
-        except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
-
-    def handle_save_settings(self):
-        try:
-            content_length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(content_length)
-            data = json.loads(body.decode("utf-8")) if body else {}
-            saved = save_api_settings(data)
-            key = saved.get("gemini_api_key", "")
-            res = {
-                "success": True,
-                "gemini_api_key_configured": bool(key),
-                "gemini_api_key_masked": mask_api_key(key),
-                "gemini_model": saved.get("gemini_model", "gemini-3-flash-preview"),
-                "default_engine": saved.get("default_engine", "gemini" if key else "ocr"),
-                "message": "AI settings saved successfully."
-            }
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps(res).encode("utf-8"))
-        except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
-
-    def handle_test_gemini(self):
-        try:
-            content_length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(content_length)
-            data = json.loads(body.decode("utf-8")) if body else {}
-            api_key = data.get("api_key", "").strip()
-            if "..." in api_key or not api_key:
-                settings = get_api_settings()
-                api_key = settings.get("gemini_api_key", "")
-            model = data.get("model", "").strip()
-            success, msg = test_gemini_connection(api_key=api_key, model_name=model)
-            res = {
-                "success": success,
-                "message": msg
-            }
-            self.send_response(200 if success else 400)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps(res).encode("utf-8"))
-        except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": False, "message": str(e)}).encode("utf-8"))
 
     def handle_logs(self):
         try:
@@ -1191,13 +1095,9 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
             content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length)
 
-            settings = get_api_settings()
-            has_gemini = bool(settings.get("gemini_api_key"))
-            default_eng = settings.get("default_engine", "gemini" if has_gemini else "ocr")
-
             saved_files = []
-            engine = default_eng
-            model_name = settings.get("gemini_model", "gemini-3-flash-preview") if engine == "gemini" else "qwen2.5vl:7b"
+            engine = "ocr"
+            model_name = "qwen2.5vl:7b"
 
             if "multipart/form-data" in content_type:
                 boundary = content_type.split("boundary=")[-1].strip()
@@ -1229,8 +1129,8 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
 
             elif "application/json" in content_type:
                 data = json.loads(body.decode("utf-8"))
-                engine = data.get("engine", default_eng)
-                model_name = data.get("model", settings.get("gemini_model", "gemini-3-flash-preview") if engine == "gemini" else "qwen2.5vl:7b")
+                engine = data.get("engine", "ocr")
+                model_name = data.get("model", "qwen2.5vl:7b")
                 files_data = data.get("files", [])
                 temp_dir = tempfile.gettempdir()
                 for item in files_data:
@@ -1245,9 +1145,6 @@ class CaseRequestHandler(SimpleHTTPRequestHandler):
                         with open(temp_path, "wb") as tf:
                             tf.write(raw_bytes)
                         saved_files.append((fn, temp_path))
-
-            if engine == "gemini" and (not model_name or "gemini" not in model_name.lower()):
-                model_name = settings.get("gemini_model", "gemini-3-flash-preview")
 
             log_ocr(f"[/api/scan] Incoming request: {len(saved_files)} file(s), engine='{engine}', model='{model_name}'")
 
