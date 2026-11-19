@@ -48471,13 +48471,15 @@ function reconcileWorkflowValue(existing, value) {
 
           try {
             const r = await apiFetch("/api/status");
-            if (r.ok) {
-              const base = await resolveBackendUrl();
-              const targetUrl = base || (window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8000");
+            if (r && r.ok) {
+              let connectedOrigin = window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8000";
+              try {
+                if (r.url) connectedOrigin = new URL(r.url, window.location.href).origin;
+              } catch (_) {}
               statusEl.style.background = "#f0fdf4";
               statusEl.style.color = "#166534";
               statusEl.style.border = "1px solid #bbf7d0";
-              statusText.innerHTML = `● <strong>Backend Server Connected:</strong> Ready at <code>${escHtml(targetUrl)}</code>`;
+              statusText.innerHTML = `● <strong>Backend Server Connected:</strong> Ready at <code>${escHtml(connectedOrigin)}</code>`;
               return true;
             }
           } catch (err) {
