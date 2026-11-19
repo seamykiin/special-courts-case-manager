@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -47,12 +48,18 @@ IS_MAC = platform.system() == "Darwin"
 FONT_FAMILY = "Helvetica Neue" if IS_MAC else "Segoe UI"
 
 APP_DIR = Path(__file__).resolve().parent
+def get_app_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    return Path(__file__).resolve().parent
+
 if IS_MAC:
     DATA_DIR = Path.home() / "Library" / "Application Support" / "PendingCases"
 else:
     DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "PendingCases"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "pending_cases.db"
+SETTINGS_FILE = DATA_DIR / "api_settings.json"
 
 _legacy_db = APP_DIR / "pending_cases.db"
 if not DB_PATH.exists() and _legacy_db.exists() and _legacy_db.resolve() != DB_PATH.resolve():
@@ -1305,6 +1312,228 @@ def query_ollama_vision(image_b64: str, model_name: str, host: str = OLLAMA_DEFA
         clean_json = raw_text[start:end + 1] if (start != -1 and end != -1) else raw_text
 
     parsed = json.loads(clean_json)
+    return raw_text, parsed
+
+
+def mask_api_key(key: str) -> str:
+    """Masks an API key for safe display in UI/logs, showing only first 6 and last 4 chars."""
+    if not key:
+        return ""
+    if len(key) <= 10:
+        return "****"
+    return f"{key[:6]}...{key[-4:]}"
+
+
+def get_api_settings() -> dict:
+    """Retrieves API and vision engine configuration from disk, DB, and environment."""
+    defaults = {
+        "gemini_api_key": os.environ.get("GEMINI_API_KEY", ""),
+        "gemini_model": "gemini-2.5-flash",
+        "default_engine": "gemini" if os.environ.get("GEMINI_API_KEY") else "ocr",
+    }
+    
+    candidates = [
+        SETTINGS_FILE,
+        APP_DIR / "api_settings.json",
+        get_app_dir() / "api_settings.json",
+    ]
+    for sf in candidates:
+        if sf and sf.exists():
+            try:
+                with open(sf, "r", encoding="utf-8") as f:
+                    saved = json.load(f)
+                    if isinstance(saved, dict):
+                        for k in ("gemini_api_key", "gemini_model", "default_engine"):
+                            if k in saved and saved[k]:
+                                defaults[k] = saved[k]
+                break
+            except Exception as e:
+                log_ocr(f"Error loading {sf}: {e}", level="WARNING")
+
+    try:
+        if DB_PATH.exists():
+            conn = sqlite3.connect(DB_PATH)
+            for k in ("gemini_api_key", "gemini_model", "default_engine"):
+                row = conn.execute("SELECT field_value FROM custom_options WHERE field_key=?", (k,)).fetchone()
+                if row and row[0]:
+                    defaults[k] = row[0]
+            conn.close()
+    except Exception:
+        pass
+
+    if os.environ.get("GEMINI_API_KEY") and not defaults["gemini_api_key"]:
+        defaults["gemini_api_key"] = os.environ.get("GEMINI_API_KEY")
+    return defaults
+
+
+def save_api_settings(new_settings: dict) -> dict:
+    """Saves API and engine configuration to disk and database."""
+    current = get_api_settings()
+    for k in ("gemini_api_key", "gemini_model", "default_engine"):
+        if k in new_settings:
+            val = str(new_settings[k]).strip()
+            if k == "gemini_api_key" and "..." in val:
+                continue
+            current[k] = val
+
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(current, f, indent=2)
+    except Exception as e:
+        log_ocr(f"Error saving {SETTINGS_FILE}: {e}", level="WARNING")
+        try:
+            with open(get_app_dir() / "api_settings.json", "w", encoding="utf-8") as f2:
+                json.dump(current, f2, indent=2)
+        except Exception:
+            pass
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("CREATE TABLE IF NOT EXISTS custom_options (field_key TEXT PRIMARY KEY, field_value TEXT)")
+        for k in ("gemini_api_key", "gemini_model", "default_engine"):
+            if k in current:
+                conn.execute("INSERT OR REPLACE INTO custom_options (field_key, field_value) VALUES (?, ?)", (k, current[k]))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        log_ocr(f"Error saving settings to db: {e}", level="WARNING")
+
+    return current
+
+
+def test_gemini_connection(api_key: str = "", model_name: str = "") -> tuple[bool, str]:
+    """Tests connectivity to Google Gemini API using a lightweight prompt."""
+    settings = get_api_settings()
+    key = api_key or settings.get("gemini_api_key", "")
+    if not key:
+        return False, "Google Gemini API Key is missing. Please enter your API Key."
+
+    model = model_name or settings.get("gemini_model", "gemini-2.5-flash")
+    if not model or model.lower() in ("tesseract", "ocr", "qwen2.5vl:7b"):
+        model = "gemini-2.5-flash"
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": "Respond with the single word 'READY'."}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "maxOutputTokens": 10,
+            "temperature": 0.0
+        }
+    }
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    try:
+        start_t = time.time()
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp_body = resp.read().decode("utf-8")
+            res_json = json.loads(resp_body)
+            elapsed = round(time.time() - start_t, 2)
+            candidates = res_json.get("candidates", [])
+            if candidates:
+                return True, f"Connected to {model} successfully! (Latency: {elapsed}s)"
+            return False, "Connected, but received unexpected response structure from Gemini API."
+    except urllib.error.HTTPError as e:
+        err_msg = ""
+        try:
+            err_body = json.loads(e.read().decode("utf-8"))
+            err_msg = err_body.get("error", {}).get("message", "")
+        except Exception:
+            pass
+        return False, f"Gemini API HTTP {e.code}: {err_msg or e.reason}"
+    except Exception as e:
+        return False, f"Connection failed: {str(e)}"
+
+
+def query_gemini_vision(image_b64: str, api_key: str = "", model_name: str = "") -> tuple[str, dict]:
+    """
+    Sends an image frame to the Google Gemini Vision REST API and parses the JSON case schema.
+    Zero 3rd-party dependencies: strictly uses Python's standard urllib.request.
+    """
+    settings = get_api_settings()
+    key = api_key or settings.get("gemini_api_key", "")
+    if not key:
+        raise ValueError("Google Gemini API Key is not configured. Please enter your API Key in Settings.")
+
+    model = model_name or settings.get("gemini_model", "gemini-2.5-flash")
+    if not model or model.lower() in ("tesseract", "ocr", "qwen2.5vl:7b"):
+        model = "gemini-2.5-flash"
+
+    clean_b64 = image_b64.strip()
+    mime_type = "image/jpeg"
+    if "," in clean_b64 and clean_b64.startswith("data:"):
+        header, clean_b64 = clean_b64.split(",", 1)
+        if "image/png" in header:
+            mime_type = "image/png"
+        elif "image/webp" in header:
+            mime_type = "image/webp"
+    clean_b64 = clean_b64.replace("\n", "").replace("\r", "").strip()
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": OLLAMA_VISION_PROMPT},
+                    {
+                        "inline_data": {
+                            "mime_type": mime_type,
+                            "data": clean_b64
+                        }
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.1,
+            "responseMimeType": "application/json"
+        }
+    }
+
+    req_data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=req_data, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            resp_body = resp.read().decode("utf-8")
+            res_json = json.loads(resp_body)
+    except urllib.error.HTTPError as e:
+        err_msg = ""
+        try:
+            err_body = json.loads(e.read().decode("utf-8"))
+            err_msg = err_body.get("error", {}).get("message", "")
+        except Exception:
+            pass
+        raise RuntimeError(f"Gemini API HTTP Error {e.code}: {err_msg or e.reason}")
+    except Exception as exc:
+        raise RuntimeError(f"Gemini API connection error: {exc}")
+
+    candidates = res_json.get("candidates", [])
+    if not candidates:
+        raise RuntimeError(f"Gemini API returned no response candidates.")
+
+    content = candidates[0].get("content", {})
+    parts = content.get("parts", [])
+    raw_text = parts[0].get("text", "") if parts else ""
+
+    match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', raw_text, re.DOTALL)
+    if match:
+        clean_json = match.group(1)
+    else:
+        start = raw_text.find('{')
+        end = raw_text.rfind('}')
+        clean_json = raw_text[start:end + 1] if (start != -1 and end != -1) else raw_text
+
+    try:
+        parsed = json.loads(clean_json) if clean_json else {}
+    except Exception:
+        parsed = {}
+
     return raw_text, parsed
 
 
@@ -4925,18 +5154,58 @@ def clean_and_normalize_case_data(ext: dict, raw_text: str = "", file_path: str 
 def process_frame(label: str, file_path: str, b64: str, engine: str = "hybrid", model_name: str = "") -> tuple[str, dict]:
     """
     Unified extraction worker that handles:
-    1. 'hybrid': Tesseract OCR + Ollama Vision + Precision Normalizer (Highest accuracy)
-    2. 'ocr': Fast offline Tesseract OCR + Precision Normalizer
-    3. 'ollama': Local Ollama Vision model + Precision Normalizer
+    1. 'gemini': Google Gemini Vision API (highest accuracy, zero local overhead)
+    2. 'hybrid': Gemini Vision (if configured) or Ollama Vision + Tesseract OCR
+    3. 'ocr': Fast offline Tesseract OCR + Precision Normalizer
+    4. 'ollama': Local Ollama Vision model + Precision Normalizer
     """
     raw_text_parts = []
     extracted_dict = {}
 
-    log_ocr(f"process_frame starting: frame='{label}', engine='{engine}', model='{model_name}'")
+    settings = get_api_settings()
+    has_gemini = bool(settings.get("gemini_api_key"))
+
+    active_engine = (engine or "hybrid").lower().strip()
+    if active_engine == "auto":
+        active_engine = settings.get("default_engine", "gemini" if has_gemini else "ocr")
+
+    log_ocr(f"process_frame starting: frame='{label}', engine='{active_engine}', model='{model_name}'")
     is_tess, tess_p = check_tesseract_available()
 
-    # 1. Tesseract OCR pass
-    if engine in ("hybrid", "ocr"):
+    gemini_ran_successfully = False
+    # 1. Google Gemini Vision pass
+    if active_engine in ("gemini", "google", "cloud") or (active_engine == "hybrid" and has_gemini):
+        try:
+            g_model = model_name if (model_name and "gemini" in model_name.lower()) else settings.get("gemini_model", "gemini-2.5-flash")
+            log_ocr(f"Frame '{label}': Querying Google Gemini Vision API using '{g_model}'...")
+            raw_gemini, gemini_json = query_gemini_vision(b64, model_name=g_model)
+            if raw_gemini.strip():
+                raw_text_parts.append(raw_gemini)
+                log_ocr(f"Frame '{label}': Gemini Vision returned {len(raw_gemini)} chars.")
+            if isinstance(gemini_json, dict) and gemini_json:
+                extracted_dict = dict(gemini_json)
+                gemini_ran_successfully = True
+                log_ocr(f"Frame '{label}': Gemini Vision successfully extracted case fields.")
+        except Exception as exc:
+            log_ocr(f"Frame '{label}': Gemini Vision error: {exc}. Gracefully falling back to Tesseract OCR...", level="WARNING")
+
+    # 2. Ollama Vision pass (if active_engine is ollama or hybrid without gemini)
+    if not gemini_ran_successfully and (active_engine in ("ollama", "hybrid") and model_name and "gemini" not in model_name.lower() and model_name.lower() != "tesseract"):
+        try:
+            log_ocr(f"Frame '{label}': Querying Ollama vision with model '{model_name}'...")
+            raw_ollama, ollama_json = query_ollama_vision(b64, model_name)
+            if raw_ollama.strip():
+                raw_text_parts.append(raw_ollama)
+                log_ocr(f"Frame '{label}': Ollama vision returned {len(raw_ollama)} chars.")
+            if isinstance(ollama_json, dict) and ollama_json:
+                extracted_dict = dict(ollama_json)
+        except Exception as exc:
+            log_ocr(f"Frame '{label}': Ollama vision error: {exc}", level="ERROR")
+            if active_engine == "ollama":
+                raise exc
+
+    # 3. Tesseract OCR pass (if engine is ocr, hybrid, or gemini failed)
+    if active_engine in ("ocr", "hybrid") or (not gemini_ran_successfully and active_engine == "gemini"):
         if is_tess:
             try:
                 ocr_text = run_tesseract_ocr(b64)
@@ -4948,24 +5217,9 @@ def process_frame(label: str, file_path: str, b64: str, engine: str = "hybrid", 
             except Exception as exc:
                 log_ocr(f"Frame '{label}': Error running Tesseract OCR: {exc}", level="ERROR")
         else:
-            log_ocr(f"Frame '{label}': Engine requested '{engine}', but Tesseract is NOT available on this system!", level="WARNING")
+            log_ocr(f"Frame '{label}': Tesseract is NOT available on this system!", level="WARNING")
 
-    # 2. Ollama Vision pass
-    if engine in ("hybrid", "ollama") and model_name and model_name.lower() != "tesseract":
-        try:
-            log_ocr(f"Frame '{label}': Querying Ollama vision with model '{model_name}'...")
-            raw_ollama, ollama_json = query_ollama_vision(b64, model_name)
-            if raw_ollama.strip():
-                raw_text_parts.append(raw_ollama)
-                log_ocr(f"Frame '{label}': Ollama vision returned {len(raw_ollama)} chars.")
-            if isinstance(ollama_json, dict):
-                extracted_dict = dict(ollama_json)
-        except Exception as exc:
-            log_ocr(f"Frame '{label}': Ollama vision error: {exc}", level="ERROR")
-            if engine == "ollama":
-                raise exc
-
-    # 3. Fuse and normalize all signals
+    # 4. Fuse and normalize all signals
     combined_raw = "\n".join(raw_text_parts).strip()
     log_ocr(f"Frame '{label}': Total combined text length={len(combined_raw)} chars. Normalizing fields...")
     normalized = clean_and_normalize_case_data(extracted_dict, combined_raw, file_path=file_path)

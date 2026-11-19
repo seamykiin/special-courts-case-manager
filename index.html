@@ -2467,6 +2467,22 @@ button * {
   }
 }
 
+/* Modern HTML Dialog Styles (Modern Web Guidance) */
+dialog:modal {
+  overscroll-behavior: contain;
+  border: none;
+  padding: 0;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  background: #ffffff;
+}
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+}
+
 .modal-head {
   padding: 16px 20px !important;
   border-bottom: 1px solid var(--border-card) !important;
@@ -5020,6 +5036,7 @@ button * {
             <button class="btn-case-primary" id="topBatchBtn" onclick="openBatchModal()">⚡ Batch Process</button>
             <button class="btn-case-primary" id="topComparePdfBtn" onclick="togglePdfSideBySide()">📄 Compare PDF</button>
             <button class="btn-case-action" id="topPdfFolderBtn" onclick="openPdfFolderModal()">📁 PDF Folder</button>
+            <button class="btn-case-action" id="topAiSettingsBtn" onclick="openAiSettingsModal()" title="Configure Google Gemini Vision API">⚙️ AI Settings</button>
             <button class="btn-case-action" id="topLogsBtn" onclick="openLogsModal()" title="View Tesseract OCR Engine Status & Logs">📋 OCR Logs</button>
           </div>
         </div>
@@ -47744,16 +47761,20 @@ function reconcileWorkflowValue(existing, value) {
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                   <strong>Engine:</strong>
                   <select id="scanEngineChoice" style="padding:4px 8px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:4px;">
+                    <option value="gemini">🌟 Google Gemini Vision (High Accuracy API - Recommended)</option>
                     <option value="ocr">⚡ Local Tesseract OCR (Fast &amp; Accurate)</option>
-                    <option value="hybrid">🚀 Hybrid: Ollama Vision + Tesseract OCR</option>
+                    <option value="hybrid">🚀 Hybrid: Gemini / Ollama + Tesseract OCR</option>
                     <option value="ollama">🦙 Ollama Vision Only</option>
                   </select>
                   <strong style="margin-left:6px;">Model:</strong>
                   <select id="scanOllamaModel" style="padding:4px 8px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:4px;">
-                    <option value="qwen2.5vl:7b">qwen2.5vl:7b (Installed)</option>
-                    <option value="llama3.2-vision">llama3.2-vision</option>
-                    <option value="minicpm-v">minicpm-v</option>
+                    <option value="gemini-2.5-flash">gemini-2.5-flash (Recommended)</option>
+                    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                    <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+                    <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+                    <option value="qwen2.5vl:7b">qwen2.5vl:7b (Ollama)</option>
                   </select>
+                  <button type="button" class="btn-case-action" onclick="openAiSettingsModal()" style="font-size:11px;padding:3px 8px;" title="Configure Gemini API Key">⚙️ AI Settings</button>
                   <span id="scanOllamaStatusBadge" style="font-size:11px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#15803d;font-weight:600;">● Engine Ready</span>
                 </div>
                 <div>
@@ -47902,6 +47923,13 @@ function reconcileWorkflowValue(existing, value) {
           statusBadge.style.background = "#fef3c7";
           statusBadge.style.color = "#92400e";
         });
+
+        fetch("/api/settings").then(r => r.json()).then(st => {
+          const sel = document.getElementById("scanEngineChoice");
+          if (sel && st.default_engine) sel.value = st.default_engine;
+          const mod = document.getElementById("scanOllamaModel");
+          if (mod && st.gemini_model && st.default_engine === "gemini") mod.value = st.gemini_model;
+        }).catch(() => {});
 
         let scannedCases = [];
         let selectedIdx = 0;
@@ -48266,6 +48294,273 @@ function reconcileWorkflowValue(existing, value) {
         renderScannedPages();
       }
 
+      // 8A. AI & GOOGLE GEMINI SETTINGS MODAL (Modern Web Guidance Native Dialog)
+      async function openAiSettingsModal() {
+        let modal = document.getElementById("aiSettingsModal");
+        if (!modal) {
+          const tpl = document.createElement("template");
+          tpl.innerHTML = `
+            <dialog id="aiSettingsModal" closedby="any" aria-labelledby="aiSettingsTitle" style="max-width:620px;width:92%;border:none;border-radius:12px;padding:0;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;background:#ffffff;">
+              <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+                <h3 id="aiSettingsTitle" style="margin:0;font-size:16px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;">
+                  <span>⚙️</span> AI &amp; Vision Engine Settings
+                </h3>
+                <button type="button" class="modal-close" id="aiSettingsCloseBtn" aria-label="Close settings dialog" style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;line-height:1;">&times;</button>
+              </div>
+
+              <div class="modal-body" style="padding:20px;max-height:80vh;overflow-y:auto;">
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:12.5px;color:#1e40af;line-height:1.5;">
+                  <strong>🚀 High-Accuracy Extraction via Google Gemini Vision</strong><br>
+                  Connect your Google Gemini API key to achieve near-100% extraction accuracy on complex bilingual (Kannada + English) court order sheets, multi-party petitions, encroached land schedules, and handwritten margin notes.
+                </div>
+
+                <!-- API Key Field -->
+                <div class="field" style="margin-bottom:16px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <label for="aiSettingsApiKeyInput" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#334155;letter-spacing:0.5px;">Google Gemini API Key</label>
+                    <span id="aiSettingsKeyBadge" style="font-size:11px;padding:2px 8px;border-radius:12px;font-weight:600;background:#f1f5f9;color:#64748b;">Checking...</span>
+                  </div>
+                  <div style="position:relative;display:flex;align-items:center;">
+                    <input type="password" id="aiSettingsApiKeyInput" placeholder="Paste your API key (starts with AIzaSy...)" autocomplete="off" style="width:100%;padding:9px 40px 9px 12px;font-size:13px;font-family:monospace;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;">
+                    <button type="button" id="aiSettingsToggleKeyBtn" aria-label="Toggle API Key visibility" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;font-size:16px;padding:4px;color:#64748b;" title="Show/Hide API Key">👁️</button>
+                  </div>
+                  <div style="font-size:11.5px;color:#64748b;margin-top:5px;line-height:1.4;">
+                    Don't have an API key? Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;font-weight:600;">Google AI Studio (aistudio.google.com)</a>. Free tier includes up to 15 RPM / 1M TPM.
+                  </div>
+                </div>
+
+                <!-- Gemini Model Selection -->
+                <div class="field" style="margin-bottom:16px;">
+                  <label for="aiSettingsModelSelect" style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;color:#334155;margin-bottom:6px;letter-spacing:0.5px;">Gemini Vision Model</label>
+                  <select id="aiSettingsModelSelect" style="width:100%;padding:8px 10px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:6px;background:#ffffff;box-sizing:border-box;">
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended - Fastest &amp; Most Accurate)</option>
+                    <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fast Multimodal Vision)</option>
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (Standard Fast Vision)</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Reasoning &amp; Complex Handwriting)</option>
+                  </select>
+                </div>
+
+                <!-- Default Extraction Engine -->
+                <div class="field" style="margin-bottom:18px;">
+                  <label for="aiSettingsDefaultEngineSelect" style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;color:#334155;margin-bottom:6px;letter-spacing:0.5px;">Default Extraction Engine</label>
+                  <select id="aiSettingsDefaultEngineSelect" style="width:100%;padding:8px 10px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:6px;background:#ffffff;box-sizing:border-box;">
+                    <option value="gemini">🌟 Google Gemini Vision (High Accuracy API - Recommended)</option>
+                    <option value="ocr">⚡ Local Tesseract OCR (Fast Offline)</option>
+                    <option value="hybrid">🚀 Hybrid (Gemini Vision with Local OCR Fallback)</option>
+                    <option value="ollama">🦙 Local Ollama Vision</option>
+                  </select>
+                  <div style="font-size:11.5px;color:#64748b;margin-top:5px;">
+                    When set to Gemini or Hybrid, the engine automatically falls back to offline Tesseract OCR if internet is disconnected.
+                  </div>
+                </div>
+
+                <!-- Test Connection Box -->
+                <div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;background:#f8fafc;margin-bottom:14px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <div>
+                      <strong style="font-size:12px;color:#1e293b;">Connection Verification</strong>
+                      <div style="font-size:11.5px;color:#64748b;">Verify API key authentication and network latency</div>
+                    </div>
+                    <button type="button" class="btn-case-action" id="aiSettingsTestBtn" style="font-size:12px;padding:6px 14px;">🔌 Test Connection</button>
+                  </div>
+                  <div id="aiSettingsTestResult" style="display:none;margin-top:10px;padding:8px 12px;border-radius:6px;font-size:12px;"></div>
+                </div>
+
+                <div id="aiSettingsSaveAlert" style="display:none;padding:10px 14px;border-radius:6px;font-size:12.5px;margin-bottom:12px;"></div>
+              </div>
+
+              <div class="modal-foot" style="padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;">
+                <button type="button" class="btn-case-action" id="aiSettingsCancelBtn" style="padding:7px 16px;font-size:12.5px;">Cancel</button>
+                <button type="button" class="btn-case-primary" id="aiSettingsSaveBtn" style="padding:7px 18px;font-size:12.5px;">💾 Save Settings</button>
+              </div>
+            </dialog>
+          `;
+          modal = tpl.content.firstElementChild;
+          document.body.appendChild(modal);
+
+          // Setup light-dismiss fallback for browsers without closedBy support (Modern Web Guidance)
+          if (!('closedBy' in HTMLDialogElement.prototype)) {
+            modal.addEventListener('click', (event) => {
+              if (event.target !== modal) return;
+              const rect = modal.getBoundingClientRect();
+              const isDialogContent = (
+                rect.top <= event.clientY &&
+                event.clientY <= rect.top + rect.height &&
+                rect.left <= event.clientX &&
+                event.clientX <= rect.left + rect.width
+              );
+              if (isDialogContent) return;
+              modal.close();
+            });
+          }
+
+          document.getElementById("aiSettingsCloseBtn").onclick = () => modal.close();
+          document.getElementById("aiSettingsCancelBtn").onclick = () => modal.close();
+
+          document.getElementById("aiSettingsToggleKeyBtn").onclick = () => {
+            const input = document.getElementById("aiSettingsApiKeyInput");
+            if (input.type === "password") {
+              input.type = "text";
+              document.getElementById("aiSettingsToggleKeyBtn").textContent = "🔒";
+            } else {
+              input.type = "password";
+              document.getElementById("aiSettingsToggleKeyBtn").textContent = "👁️";
+            }
+          };
+
+          document.getElementById("aiSettingsTestBtn").onclick = async () => {
+            const btn = document.getElementById("aiSettingsTestBtn");
+            const resBox = document.getElementById("aiSettingsTestResult");
+            const input = document.getElementById("aiSettingsApiKeyInput");
+            const modelSelect = document.getElementById("aiSettingsModelSelect");
+
+            btn.disabled = true;
+            btn.textContent = "⏳ Testing...";
+            resBox.style.display = "block";
+            resBox.style.background = "#eff6ff";
+            resBox.style.color = "#1e40af";
+            resBox.style.border = "1px solid #bfdbfe";
+            resBox.innerHTML = "<span>Connecting to Google Gemini API...</span>";
+
+            try {
+              const resp = await fetch("/api/test-gemini", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  api_key: input.value.trim(),
+                  model: modelSelect.value
+                })
+              });
+              const data = await resp.json();
+              if (data.success) {
+                resBox.style.background = "#f0fdf4";
+                resBox.style.color = "#166534";
+                resBox.style.border = "1px solid #bbf7d0";
+                resBox.innerHTML = `<strong>✓ Success!</strong> ${escHtml(data.message)}`;
+              } else {
+                resBox.style.background = "#fef2f2";
+                resBox.style.color = "#991b1b";
+                resBox.style.border = "1px solid #fecaca";
+                resBox.innerHTML = `<strong>✗ Connection Failed:</strong> ${escHtml(data.message)}`;
+              }
+            } catch (err) {
+              resBox.style.background = "#fef2f2";
+              resBox.style.color = "#991b1b";
+              resBox.style.border = "1px solid #fecaca";
+              resBox.innerHTML = `<strong>✗ Network Error:</strong> ${escHtml(err.message)}`;
+            } finally {
+              btn.disabled = false;
+              btn.textContent = "🔌 Test Connection";
+            }
+          };
+
+          document.getElementById("aiSettingsSaveBtn").onclick = async () => {
+            const btn = document.getElementById("aiSettingsSaveBtn");
+            const alertBox = document.getElementById("aiSettingsSaveAlert");
+            const input = document.getElementById("aiSettingsApiKeyInput");
+            const modelSelect = document.getElementById("aiSettingsModelSelect");
+            const engineSelect = document.getElementById("aiSettingsDefaultEngineSelect");
+
+            btn.disabled = true;
+            btn.textContent = "Saving...";
+            alertBox.style.display = "none";
+
+            try {
+              const resp = await fetch("/api/settings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  gemini_api_key: input.value.trim(),
+                  gemini_model: modelSelect.value,
+                  default_engine: engineSelect.value
+                })
+              });
+              const data = await resp.json();
+              if (data.success) {
+                alertBox.style.display = "block";
+                alertBox.style.background = "#f0fdf4";
+                alertBox.style.color = "#166534";
+                alertBox.style.border = "1px solid #bbf7d0";
+                alertBox.innerHTML = `<strong>✓ Settings Saved!</strong> Default extraction engine is now <strong>${escHtml(data.default_engine)}</strong>.`;
+
+                const badge = document.getElementById("aiSettingsKeyBadge");
+                if (data.gemini_api_key_configured) {
+                  badge.style.background = "#dcfce7";
+                  badge.style.color = "#15803d";
+                  badge.textContent = `● Key Configured (${data.gemini_api_key_masked})`;
+                  input.value = "";
+                  input.placeholder = `Configured: ${data.gemini_api_key_masked} (leave empty to keep)`;
+                }
+
+                const scanChoice = document.getElementById("scanEngineChoice");
+                if (scanChoice) scanChoice.value = data.default_engine;
+                const batchChoice = document.getElementById("batchEngineSelect");
+                if (batchChoice) batchChoice.value = data.default_engine;
+
+                setTimeout(() => {
+                  modal.close();
+                }, 1200);
+              } else {
+                alertBox.style.display = "block";
+                alertBox.style.background = "#fef2f2";
+                alertBox.style.color = "#991b1b";
+                alertBox.style.border = "1px solid #fecaca";
+                alertBox.innerHTML = `<strong>✗ Error saving settings:</strong> ${escHtml(data.error || "Unknown error")}`;
+              }
+            } catch (err) {
+              alertBox.style.display = "block";
+              alertBox.style.background = "#fef2f2";
+              alertBox.style.color = "#991b1b";
+              alertBox.style.border = "1px solid #fecaca";
+              alertBox.innerHTML = `<strong>✗ Failed to connect to server:</strong> ${escHtml(err.message)}`;
+            } finally {
+              btn.disabled = false;
+              btn.textContent = "💾 Save Settings";
+            }
+          };
+        }
+
+        try {
+          const resp = await fetch("/api/settings");
+          const settings = await resp.json();
+          const badge = document.getElementById("aiSettingsKeyBadge");
+          const keyInput = document.getElementById("aiSettingsApiKeyInput");
+          const modelSelect = document.getElementById("aiSettingsModelSelect");
+          const engineSelect = document.getElementById("aiSettingsDefaultEngineSelect");
+
+          if (settings.gemini_api_key_configured) {
+            badge.style.background = "#dcfce7";
+            badge.style.color = "#15803d";
+            badge.textContent = `● Key Configured (${settings.gemini_api_key_masked})`;
+            keyInput.value = "";
+            keyInput.placeholder = `Configured: ${settings.gemini_api_key_masked} (leave empty to keep)`;
+          } else {
+            badge.style.background = "#fee2e2";
+            badge.style.color = "#991b1b";
+            badge.textContent = "○ Key Not Configured";
+            keyInput.value = "";
+            keyInput.placeholder = "Paste your API key (starts with AIzaSy...)";
+          }
+
+          if (settings.gemini_model && modelSelect) {
+            modelSelect.value = settings.gemini_model;
+          }
+          if (settings.default_engine && engineSelect) {
+            engineSelect.value = settings.default_engine;
+          }
+        } catch (e) {
+          console.warn("Could not load /api/settings:", e);
+        }
+
+        const testRes = document.getElementById("aiSettingsTestResult");
+        if (testRes) testRes.style.display = "none";
+        const saveAlert = document.getElementById("aiSettingsSaveAlert");
+        if (saveAlert) saveAlert.style.display = "none";
+
+        modal.showModal();
+      }
+      window.openAiSettingsModal = openAiSettingsModal;
+
       // 8B. OCR & SERVER LOGS MODAL
       async function openLogsModal() {
         const wrap = document.createElement("div");
@@ -48366,10 +48661,12 @@ function reconcileWorkflowValue(existing, value) {
                   <div style="display:flex;align-items:center;gap:8px;">
                     <strong>Extraction Engine:</strong>
                     <select id="batchEngineSelect" style="padding:4px 8px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:4px;">
+                      <option value="gemini">🌟 Google Gemini Vision (High Accuracy API - Recommended)</option>
                       <option value="ocr">⚡ Local Tesseract OCR (Fast &amp; Accurate)</option>
-                      <option value="hybrid">🚀 Hybrid: Ollama Vision + Tesseract OCR</option>
+                      <option value="hybrid">🚀 Hybrid: Gemini / Ollama + Tesseract OCR</option>
                       <option value="ollama">🦙 Local Ollama Vision</option>
                     </select>
+                    <button type="button" class="btn-case-action" onclick="openAiSettingsModal()" style="font-size:11px;padding:3px 8px;" title="Configure Gemini API Key">⚙️ AI Settings</button>
                   </div>
                   <div style="display:flex;align-items:center;gap:6px;">
                     <button id="batchViewLogsBtn" class="btn-case-action" style="font-size:11.5px;padding:4px 9px;">📋 View OCR Logs</button>
@@ -48458,6 +48755,12 @@ function reconcileWorkflowValue(existing, value) {
           const countEl = document.getElementById("batchCountLbl");
           if (countEl) countEl.textContent = batchCases.length;
         }
+
+        fetch("/api/settings").then(r => r.json()).then(st => {
+          const sel = document.getElementById("batchEngineSelect");
+          if (sel && st.default_engine) sel.value = st.default_engine;
+        }).catch(() => {});
+
         renderBatchRows();
 
         // Batch File selection with real backend OCR
@@ -49324,6 +49627,7 @@ function reconcileWorkflowValue(existing, value) {
               <button class="btn-case-action" id="fNextCaseBtn">Next Case ▶</button>
               <button class="btn-case-action" id="fComparePdfBtn">📄 Compare PDF</button>
               <button class="btn-case-action" id="fPdfFolderBtn" onclick="openPdfFolderModal()">📁 PDF Folder</button>
+              <button class="btn-case-action" id="fAiSettingsBtn" onclick="openAiSettingsModal()">⚙️ AI Settings</button>
               <button class="btn-case-action" id="fBatchBtn" onclick="openBatchModal()">⚡ Batch Process</button>
               <button class="btn-case-action" id="fScanBtn" onclick="openScanModal()">🦙 Scan Images</button>
               <button class="btn-case-action" id="fClearBtn">Clear Form</button>
