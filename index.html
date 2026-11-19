@@ -48339,325 +48339,319 @@ function reconcileWorkflowValue(existing, value) {
         renderScannedPages();
       }
 
-      // 8A. AI & GOOGLE GEMINI SETTINGS MODAL (Modern Web Guidance Native Dialog)
-      async function openAiSettingsModal() {
-        let modal = document.getElementById("aiSettingsModal");
-        if (!modal) {
-          const tpl = document.createElement("template");
-          tpl.innerHTML = `
-            <dialog id="aiSettingsModal" closedby="any" aria-labelledby="aiSettingsTitle" style="max-width:620px;width:92%;border:none;border-radius:12px;padding:0;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;background:#ffffff;">
-              <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
-                <h3 id="aiSettingsTitle" style="margin:0;font-size:16px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;">
-                  <span>⚙️</span> AI &amp; Vision Engine Settings
-                </h3>
-                <button type="button" class="modal-close" id="aiSettingsCloseBtn" aria-label="Close settings dialog" style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;line-height:1;">&times;</button>
+      // 8A. AI & GOOGLE GEMINI SETTINGS MODAL
+      function openAiSettingsModal() {
+        let existing = document.getElementById("aiSettingsModalWrap");
+        if (existing) existing.remove();
+
+        const wrap = document.createElement("div");
+        wrap.id = "aiSettingsModalWrap";
+        wrap.className = "modal-backdrop modal-bg";
+        wrap.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;background:rgba(16,24,40,0.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:999999;padding:20px;box-sizing:border-box;";
+        wrap.innerHTML = `
+          <div class="modal" style="max-width:640px;width:94%;background:#ffffff;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;display:flex;flex-direction:column;max-height:90vh;">
+            <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+              <h3 id="aiSettingsTitle" style="margin:0;font-size:16px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;">
+                <span>⚙️</span> AI &amp; Vision Engine Settings
+              </h3>
+              <button type="button" class="modal-close" id="aiSettingsCloseBtn" aria-label="Close settings dialog" style="background:none;border:none;font-size:22px;cursor:pointer;color:#64748b;line-height:1;padding:0 4px;">&times;</button>
+            </div>
+
+            <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1;">
+              <!-- Backend Server Connection Status -->
+              <div id="aiSettingsServerStatus" style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:6px;font-size:12px;margin-bottom:14px;background:#f1f5f9;border:1px solid #cbd5e1;gap:8px;flex-wrap:wrap;">
+                <span id="aiSettingsServerStatusText">Checking backend server connection...</span>
+                <button type="button" class="btn-case-action" id="aiSettingsRetryServerBtn" style="font-size:11px;padding:2px 8px;">🔄 Recheck Server</button>
               </div>
 
-              <div class="modal-body" style="padding:20px;max-height:80vh;overflow-y:auto;">
-                <!-- Backend Server Connection Status -->
-                <div id="aiSettingsServerStatus" style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:6px;font-size:12px;margin-bottom:14px;background:#f1f5f9;border:1px solid #cbd5e1;gap:8px;flex-wrap:wrap;">
-                  <span id="aiSettingsServerStatusText">Checking backend server connection...</span>
-                  <button type="button" class="btn-case-action" id="aiSettingsRetryServerBtn" style="font-size:11px;padding:2px 8px;">🔄 Recheck Server</button>
-                </div>
-
-                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:12.5px;color:#1e40af;line-height:1.5;">
-                  <strong>🚀 High-Accuracy Extraction via Google Gemini Vision</strong><br>
-                  Connect your Google Gemini API key to achieve near-100% extraction accuracy on complex bilingual (Kannada + English) court order sheets, multi-party petitions, encroached land schedules, and handwritten margin notes.
-                </div>
-
-                <!-- API Key Field -->
-                <div class="field" style="margin-bottom:16px;">
-                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                    <label for="aiSettingsApiKeyInput" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#334155;letter-spacing:0.5px;">Google Gemini API Key</label>
-                    <span id="aiSettingsKeyBadge" style="font-size:11px;padding:2px 8px;border-radius:12px;font-weight:600;background:#f1f5f9;color:#64748b;">Checking...</span>
-                  </div>
-                  <div style="position:relative;display:flex;align-items:center;">
-                    <input type="password" id="aiSettingsApiKeyInput" placeholder="Paste your API key (starts with AIzaSy...)" autocomplete="off" style="width:100%;padding:9px 40px 9px 12px;font-size:13px;font-family:monospace;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;">
-                    <button type="button" id="aiSettingsToggleKeyBtn" aria-label="Toggle API Key visibility" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;font-size:16px;padding:4px;color:#64748b;" title="Show/Hide API Key">👁️</button>
-                  </div>
-                  <div style="font-size:11.5px;color:#64748b;margin-top:5px;line-height:1.4;">
-                    Don't have an API key? Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;font-weight:600;">Google AI Studio (aistudio.google.com)</a>. Free tier includes up to 15 RPM / 1M TPM.
-                  </div>
-                </div>
-
-                <!-- Gemini Model Selection -->
-                <div class="field" style="margin-bottom:16px;">
-                  <label for="aiSettingsModelSelect" style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;color:#334155;margin-bottom:6px;letter-spacing:0.5px;">Gemini Vision Model</label>
-                  <select id="aiSettingsModelSelect" style="width:100%;padding:8px 10px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:6px;background:#ffffff;box-sizing:border-box;">
-                    <option value="gemini-3-flash-preview">Gemini 3 Flash Preview (Recommended - Ultra-Fast &amp; Accurate)</option>
-                    <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
-                    <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                  </select>
-                </div>
-
-                <!-- Default Extraction Engine -->
-                <div class="field" style="margin-bottom:18px;">
-                  <label for="aiSettingsDefaultEngineSelect" style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;color:#334155;margin-bottom:6px;letter-spacing:0.5px;">Default Extraction Engine</label>
-                  <select id="aiSettingsDefaultEngineSelect" style="width:100%;padding:8px 10px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:6px;background:#ffffff;box-sizing:border-box;">
-                    <option value="gemini">🌟 Google Gemini Vision (High Accuracy API - Recommended)</option>
-                    <option value="ocr">⚡ Local Tesseract OCR (Fast Offline)</option>
-                    <option value="hybrid">🚀 Hybrid (Gemini Vision with Local OCR Fallback)</option>
-                    <option value="ollama">🦙 Local Ollama Vision</option>
-                  </select>
-                  <div style="font-size:11.5px;color:#64748b;margin-top:5px;">
-                    When set to Gemini or Hybrid, the engine automatically falls back to offline Tesseract OCR if internet is disconnected.
-                  </div>
-                </div>
-
-                <!-- Test Connection Box -->
-                <div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;background:#f8fafc;margin-bottom:14px;">
-                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-                    <div>
-                      <strong style="font-size:12px;color:#1e293b;">Connection Verification</strong>
-                      <div style="font-size:11.5px;color:#64748b;">Verify API key authentication and network latency</div>
-                    </div>
-                    <button type="button" class="btn-case-action" id="aiSettingsTestBtn" style="font-size:12px;padding:6px 14px;">🔌 Test Connection</button>
-                  </div>
-                  <div id="aiSettingsTestResult" style="display:none;margin-top:10px;padding:8px 12px;border-radius:6px;font-size:12px;"></div>
-                </div>
-
-                <div id="aiSettingsSaveAlert" style="display:none;padding:10px 14px;border-radius:6px;font-size:12.5px;margin-bottom:12px;"></div>
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:12.5px;color:#1e40af;line-height:1.5;">
+                <strong>🚀 High-Accuracy Extraction via Google Gemini Vision</strong><br>
+                Connect your Google Gemini API key to achieve near-100% extraction accuracy on complex bilingual (Kannada + English) court order sheets, multi-party petitions, encroached land schedules, and handwritten margin notes.
               </div>
 
-              <div class="modal-foot" style="padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;">
-                <button type="button" class="btn-case-action" id="aiSettingsCancelBtn" style="padding:7px 16px;font-size:12.5px;">Cancel</button>
-                <button type="button" class="btn-case-primary" id="aiSettingsSaveBtn" style="padding:7px 18px;font-size:12.5px;">💾 Save Settings</button>
+              <!-- API Key Field -->
+              <div class="field" style="margin-bottom:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                  <label for="aiSettingsApiKeyInput" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#334155;letter-spacing:0.5px;">Google Gemini API Key</label>
+                  <span id="aiSettingsKeyBadge" style="font-size:11px;padding:2px 8px;border-radius:12px;font-weight:600;background:#f1f5f9;color:#64748b;">Checking...</span>
+                </div>
+                <div style="position:relative;display:flex;align-items:center;">
+                  <input type="password" id="aiSettingsApiKeyInput" placeholder="Paste your API key (starts with AIzaSy...)" autocomplete="off" style="width:100%;padding:9px 40px 9px 12px;font-size:13px;font-family:monospace;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;">
+                  <button type="button" id="aiSettingsToggleKeyBtn" aria-label="Toggle API Key visibility" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;font-size:16px;padding:4px;color:#64748b;" title="Show/Hide API Key">👁️</button>
+                </div>
+                <div style="font-size:11.5px;color:#64748b;margin-top:5px;line-height:1.4;">
+                  Don't have an API key? Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;font-weight:600;">Google AI Studio (aistudio.google.com)</a>. Free tier includes up to 15 RPM / 1M TPM.
+                </div>
               </div>
-            </dialog>
-          `;
-          modal = tpl.content.firstElementChild;
-          document.body.appendChild(modal);
 
-          // Setup light-dismiss fallback for browsers without closedBy support (Modern Web Guidance)
-          if (!('closedBy' in HTMLDialogElement.prototype)) {
-            modal.addEventListener('click', (event) => {
-              if (event.target !== modal) return;
-              const rect = modal.getBoundingClientRect();
-              const isDialogContent = (
-                rect.top <= event.clientY &&
-                event.clientY <= rect.top + rect.height &&
-                rect.left <= event.clientX &&
-                event.clientX <= rect.left + rect.width
-              );
-              if (isDialogContent) return;
-              modal.close();
-            });
+              <!-- Gemini Model Selection -->
+              <div class="field" style="margin-bottom:16px;">
+                <label for="aiSettingsModelSelect" style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;color:#334155;margin-bottom:6px;letter-spacing:0.5px;">Gemini Vision Model</label>
+                <select id="aiSettingsModelSelect" style="width:100%;padding:8px 10px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:6px;background:#ffffff;box-sizing:border-box;">
+                  <option value="gemini-3-flash-preview">Gemini 3 Flash Preview (Recommended - Ultra-Fast &amp; Accurate)</option>
+                  <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                  <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                </select>
+              </div>
+
+              <!-- Default Extraction Engine -->
+              <div class="field" style="margin-bottom:18px;">
+                <label for="aiSettingsDefaultEngineSelect" style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;color:#334155;margin-bottom:6px;letter-spacing:0.5px;">Default Extraction Engine</label>
+                <select id="aiSettingsDefaultEngineSelect" style="width:100%;padding:8px 10px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:6px;background:#ffffff;box-sizing:border-box;">
+                  <option value="gemini">🌟 Google Gemini Vision (High Accuracy API - Recommended)</option>
+                  <option value="ocr">⚡ Local Tesseract OCR (Fast Offline)</option>
+                  <option value="hybrid">🚀 Hybrid (Gemini Vision with Local OCR Fallback)</option>
+                  <option value="ollama">🦙 Local Ollama Vision</option>
+                </select>
+                <div style="font-size:11.5px;color:#64748b;margin-top:5px;">
+                  When set to Gemini or Hybrid, the engine automatically falls back to offline Tesseract OCR if internet is disconnected.
+                </div>
+              </div>
+
+              <!-- Test Connection Box -->
+              <div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;background:#f8fafc;margin-bottom:14px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                  <div>
+                    <strong style="font-size:12px;color:#1e293b;">Connection Verification</strong>
+                    <div style="font-size:11.5px;color:#64748b;">Verify API key authentication and network latency</div>
+                  </div>
+                  <button type="button" class="btn-case-action" id="aiSettingsTestBtn" style="font-size:12px;padding:6px 14px;">🔌 Test Connection</button>
+                </div>
+                <div id="aiSettingsTestResult" style="display:none;margin-top:10px;padding:8px 12px;border-radius:6px;font-size:12px;"></div>
+              </div>
+
+              <div id="aiSettingsSaveAlert" style="display:none;padding:10px 14px;border-radius:6px;font-size:12.5px;margin-bottom:12px;"></div>
+            </div>
+
+            <div class="modal-foot" style="padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;">
+              <button type="button" class="btn-case-action" id="aiSettingsCancelBtn" style="padding:7px 16px;font-size:12.5px;">Cancel</button>
+              <button type="button" class="btn-case-primary" id="aiSettingsSaveBtn" style="padding:7px 18px;font-size:12.5px;">💾 Save Settings</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(wrap);
+
+        // Close on backdrop click (click outside modal content)
+        wrap.addEventListener("click", (e) => {
+          if (e.target === wrap) wrap.remove();
+        });
+
+        const closeModal = () => wrap.remove();
+        document.getElementById("aiSettingsCloseBtn").onclick = closeModal;
+        document.getElementById("aiSettingsCancelBtn").onclick = closeModal;
+
+        // Toggle Key Visibility
+        document.getElementById("aiSettingsToggleKeyBtn").onclick = () => {
+          const input = document.getElementById("aiSettingsApiKeyInput");
+          if (input.type === "password") {
+            input.type = "text";
+            document.getElementById("aiSettingsToggleKeyBtn").textContent = "🔒";
+          } else {
+            input.type = "password";
+            document.getElementById("aiSettingsToggleKeyBtn").textContent = "👁️";
           }
+        };
 
-          document.getElementById("aiSettingsCloseBtn").onclick = () => modal.close();
-          document.getElementById("aiSettingsCancelBtn").onclick = () => modal.close();
+        // Check server health
+        const checkServerHealth = async () => {
+          const statusEl = document.getElementById("aiSettingsServerStatus");
+          const statusText = document.getElementById("aiSettingsServerStatusText");
+          if (!statusEl || !statusText) return false;
 
-          document.getElementById("aiSettingsToggleKeyBtn").onclick = () => {
-            const input = document.getElementById("aiSettingsApiKeyInput");
-            if (input.type === "password") {
-              input.type = "text";
-              document.getElementById("aiSettingsToggleKeyBtn").textContent = "🔒";
-            } else {
-              input.type = "password";
-              document.getElementById("aiSettingsToggleKeyBtn").textContent = "👁️";
+          statusEl.style.display = "flex";
+          statusEl.style.background = "#eff6ff";
+          statusEl.style.color = "#1e40af";
+          statusEl.style.border = "1px solid #bfdbfe";
+          statusText.innerHTML = "<span>Checking local backend server...</span>";
+
+          try {
+            const base = await resolveBackendUrl(true);
+            const r = await apiFetch("/api/status");
+            if (r.ok) {
+              const targetUrl = base || (window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8000");
+              statusEl.style.background = "#f0fdf4";
+              statusEl.style.color = "#166534";
+              statusEl.style.border = "1px solid #bbf7d0";
+              statusText.innerHTML = `● <strong>Backend Server Connected:</strong> Ready at <code>${escHtml(targetUrl)}</code>`;
+              return true;
             }
-          };
+          } catch (_) {}
 
-          const checkServerHealth = async () => {
-            const statusEl = document.getElementById("aiSettingsServerStatus");
-            const statusText = document.getElementById("aiSettingsServerStatusText");
-            if (!statusEl || !statusText) return false;
+          statusEl.style.background = "#fef2f2";
+          statusEl.style.color = "#991b1b";
+          statusEl.style.border = "1px solid #fecaca";
+          if (window.location.protocol === "file:") {
+            statusText.innerHTML = `⚠️ <strong>Browser Security Block (file:///):</strong> You opened <code>index.html</code> directly from disk. Web browsers block local files from connecting to local servers.<br><span style="margin-top:6px;display:inline-block;font-size:12px;">👉 Please open in your browser address bar: <a href="http://127.0.0.1:8000" target="_blank" style="color:#1d4ed8;font-weight:700;text-decoration:underline;">http://127.0.0.1:8000</a> or <a href="http://127.0.0.1:8001" target="_blank" style="color:#1d4ed8;font-weight:700;text-decoration:underline;">http://127.0.0.1:8001</a></span>`;
+          } else {
+            const currentOrigin = window.location.origin;
+            statusText.innerHTML = `🔴 <strong>Backend Server Offline:</strong> Cannot reach <code>${escHtml(currentOrigin)}</code>.<br><span style="margin-top:4px;display:inline-block;font-size:12px;">Start the server with <strong>LGCCaseRegister.exe</strong> or <code>python3 server.py</code>.<br>If running on another port, open: <a href="http://127.0.0.1:8000" target="_blank" style="color:#1d4ed8;font-weight:600;">Port 8000</a> | <a href="http://127.0.0.1:8001" target="_blank" style="color:#1d4ed8;font-weight:600;">Port 8001</a></span>`;
+          }
+          return false;
+        };
 
-            statusEl.style.display = "flex";
-            statusEl.style.background = "#eff6ff";
-            statusEl.style.color = "#1e40af";
-            statusEl.style.border = "1px solid #bfdbfe";
-            statusText.innerHTML = "<span>Checking local backend server...</span>";
+        document.getElementById("aiSettingsRetryServerBtn").onclick = () => {
+          checkServerHealth();
+        };
 
-            try {
-              const base = await resolveBackendUrl(true);
-              const r = await apiFetch("/api/status");
-              if (r.ok) {
-                const targetUrl = base || (window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8000");
-                statusEl.style.background = "#f0fdf4";
-                statusEl.style.color = "#166534";
-                statusEl.style.border = "1px solid #bbf7d0";
-                statusText.innerHTML = `● <strong>Backend Server Connected:</strong> Ready at <code>${escHtml(targetUrl)}</code>`;
-                return true;
-              }
-            } catch (_) {}
+        // Test Gemini Button
+        document.getElementById("aiSettingsTestBtn").onclick = async () => {
+          const btn = document.getElementById("aiSettingsTestBtn");
+          const resBox = document.getElementById("aiSettingsTestResult");
+          const input = document.getElementById("aiSettingsApiKeyInput");
+          const modelSelect = document.getElementById("aiSettingsModelSelect");
 
-            statusEl.style.background = "#fef2f2";
-            statusEl.style.color = "#991b1b";
-            statusEl.style.border = "1px solid #fecaca";
-            if (window.location.protocol === "file:") {
-              statusText.innerHTML = `⚠️ <strong>Browser Security Block (file:///):</strong> You opened <code>index.html</code> directly from disk. Web browsers block local files from connecting to local servers.<br><span style="margin-top:6px;display:inline-block;font-size:12px;">👉 Please open in your browser address bar: <a href="http://127.0.0.1:8000" target="_blank" style="color:#1d4ed8;font-weight:700;text-decoration:underline;">http://127.0.0.1:8000</a> or <a href="http://127.0.0.1:8001" target="_blank" style="color:#1d4ed8;font-weight:700;text-decoration:underline;">http://127.0.0.1:8001</a></span>`;
+          btn.disabled = true;
+          btn.textContent = "⏳ Testing...";
+          resBox.style.display = "block";
+          resBox.style.background = "#eff6ff";
+          resBox.style.color = "#1e40af";
+          resBox.style.border = "1px solid #bfdbfe";
+          resBox.innerHTML = "<span>Connecting to Google Gemini API...</span>";
+
+          try {
+            const resp = await apiFetch("/api/test-gemini", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                api_key: input.value.trim(),
+                model: modelSelect.value
+              })
+            });
+            const data = await resp.json();
+            if (data.success) {
+              resBox.style.background = "#f0fdf4";
+              resBox.style.color = "#166534";
+              resBox.style.border = "1px solid #bbf7d0";
+              resBox.innerHTML = `<strong>✓ Success!</strong> ${escHtml(data.message)}`;
             } else {
-              const currentOrigin = window.location.origin;
-              statusText.innerHTML = `🔴 <strong>Backend Server Offline:</strong> Cannot reach <code>${escHtml(currentOrigin)}</code>.<br><span style="margin-top:4px;display:inline-block;font-size:12px;">Start the server with <strong>LGCCaseRegister.exe</strong> or <code>python3 server.py</code>.<br>If running on another port, open: <a href="http://127.0.0.1:8000" target="_blank" style="color:#1d4ed8;font-weight:600;">Port 8000</a> | <a href="http://127.0.0.1:8001" target="_blank" style="color:#1d4ed8;font-weight:600;">Port 8001</a></span>`;
-            }
-            return false;
-          };
-
-          document.getElementById("aiSettingsRetryServerBtn").onclick = () => {
-            checkServerHealth();
-          };
-
-          document.getElementById("aiSettingsTestBtn").onclick = async () => {
-            const btn = document.getElementById("aiSettingsTestBtn");
-            const resBox = document.getElementById("aiSettingsTestResult");
-            const input = document.getElementById("aiSettingsApiKeyInput");
-            const modelSelect = document.getElementById("aiSettingsModelSelect");
-
-            btn.disabled = true;
-            btn.textContent = "⏳ Testing...";
-            resBox.style.display = "block";
-            resBox.style.background = "#eff6ff";
-            resBox.style.color = "#1e40af";
-            resBox.style.border = "1px solid #bfdbfe";
-            resBox.innerHTML = "<span>Connecting to Google Gemini API...</span>";
-
-            try {
-              const resp = await apiFetch("/api/test-gemini", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  api_key: input.value.trim(),
-                  model: modelSelect.value
-                })
-              });
-              const data = await resp.json();
-              if (data.success) {
-                resBox.style.background = "#f0fdf4";
-                resBox.style.color = "#166534";
-                resBox.style.border = "1px solid #bbf7d0";
-                resBox.innerHTML = `<strong>✓ Success!</strong> ${escHtml(data.message)}`;
-              } else {
-                resBox.style.background = "#fef2f2";
-                resBox.style.color = "#991b1b";
-                resBox.style.border = "1px solid #fecaca";
-                resBox.innerHTML = `<strong>✗ Connection Failed:</strong> ${escHtml(data.message)}`;
-              }
-            } catch (err) {
-              let base = await resolveBackendUrl();
-              if (!base && !window.location.protocol.startsWith("http")) base = "http://127.0.0.1:8000";
-              const target = base || window.location.origin;
               resBox.style.background = "#fef2f2";
               resBox.style.color = "#991b1b";
               resBox.style.border = "1px solid #fecaca";
-              resBox.innerHTML = `<strong>✗ Server Connection Failed:</strong> Could not reach local backend at <code>${escHtml(target)}</code>.<br><span style="font-size:11.5px;margin-top:4px;display:block;">Ensure the backend application is running (launch <strong>LGCCaseRegister.exe</strong> or run <code>python3 server.py</code> in terminal).</span>`;
-            } finally {
-              btn.disabled = false;
-              btn.textContent = "🔌 Test Connection";
+              resBox.innerHTML = `<strong>✗ Connection Failed:</strong> ${escHtml(data.message)}`;
             }
-          };
+          } catch (err) {
+            let base = await resolveBackendUrl();
+            if (!base && !window.location.protocol.startsWith("http")) base = "http://127.0.0.1:8000";
+            const target = base || window.location.origin;
+            resBox.style.background = "#fef2f2";
+            resBox.style.color = "#991b1b";
+            resBox.style.border = "1px solid #fecaca";
+            resBox.innerHTML = `<strong>✗ Server Connection Failed:</strong> Could not reach local backend at <code>${escHtml(target)}</code>.<br><span style="font-size:11.5px;margin-top:4px;display:block;">Ensure the backend application is running (launch <strong>LGCCaseRegister.exe</strong> or run <code>python3 server.py</code> in terminal).</span>`;
+          } finally {
+            btn.disabled = false;
+            btn.textContent = "🔌 Test Connection";
+          }
+        };
 
-          document.getElementById("aiSettingsSaveBtn").onclick = async () => {
-            const btn = document.getElementById("aiSettingsSaveBtn");
-            const alertBox = document.getElementById("aiSettingsSaveAlert");
-            const input = document.getElementById("aiSettingsApiKeyInput");
-            const modelSelect = document.getElementById("aiSettingsModelSelect");
-            const engineSelect = document.getElementById("aiSettingsDefaultEngineSelect");
+        // Save Settings Button
+        document.getElementById("aiSettingsSaveBtn").onclick = async () => {
+          const btn = document.getElementById("aiSettingsSaveBtn");
+          const alertBox = document.getElementById("aiSettingsSaveAlert");
+          const input = document.getElementById("aiSettingsApiKeyInput");
+          const modelSelect = document.getElementById("aiSettingsModelSelect");
+          const engineSelect = document.getElementById("aiSettingsDefaultEngineSelect");
 
-            btn.disabled = true;
-            btn.textContent = "Saving...";
-            alertBox.style.display = "none";
+          btn.disabled = true;
+          btn.textContent = "Saving...";
+          alertBox.style.display = "none";
 
-            try {
-              const resp = await apiFetch("/api/settings", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  gemini_api_key: input.value.trim(),
-                  gemini_model: modelSelect.value,
-                  default_engine: engineSelect.value
-                })
-              });
-              const data = await resp.json();
-              if (data.success) {
-                alertBox.style.display = "block";
-                alertBox.style.background = "#f0fdf4";
-                alertBox.style.color = "#166534";
-                alertBox.style.border = "1px solid #bbf7d0";
-                alertBox.innerHTML = `<strong>✓ Settings Saved!</strong> Default extraction engine is now <strong>${escHtml(data.default_engine)}</strong>.`;
+          try {
+            const resp = await apiFetch("/api/settings", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                gemini_api_key: input.value.trim(),
+                gemini_model: modelSelect.value,
+                default_engine: engineSelect.value
+              })
+            });
+            const data = await resp.json();
+            if (data.success) {
+              alertBox.style.display = "block";
+              alertBox.style.background = "#f0fdf4";
+              alertBox.style.color = "#166534";
+              alertBox.style.border = "1px solid #bbf7d0";
+              alertBox.innerHTML = `<strong>✓ Settings Saved!</strong> Default extraction engine is now <strong>${escHtml(data.default_engine)}</strong>.`;
 
-                const badge = document.getElementById("aiSettingsKeyBadge");
-                if (data.gemini_api_key_configured) {
-                  badge.style.background = "#dcfce7";
-                  badge.style.color = "#15803d";
-                  badge.textContent = `● Key Configured (${data.gemini_api_key_masked})`;
-                  input.value = "";
-                  input.placeholder = `Configured: ${data.gemini_api_key_masked} (leave empty to keep)`;
-                }
-
-                const scanChoice = document.getElementById("scanEngineChoice");
-                if (scanChoice) scanChoice.value = data.default_engine;
-                const batchChoice = document.getElementById("batchEngineSelect");
-                if (batchChoice) batchChoice.value = data.default_engine;
-
-                setTimeout(() => {
-                  modal.close();
-                }, 1200);
-              } else {
-                alertBox.style.display = "block";
-                alertBox.style.background = "#fef2f2";
-                alertBox.style.color = "#991b1b";
-                alertBox.style.border = "1px solid #fecaca";
-                alertBox.innerHTML = `<strong>✗ Error saving settings:</strong> ${escHtml(data.error || "Unknown error")}`;
+              const badge = document.getElementById("aiSettingsKeyBadge");
+              if (data.gemini_api_key_configured) {
+                badge.style.background = "#dcfce7";
+                badge.style.color = "#15803d";
+                badge.textContent = `● Key Configured (${data.gemini_api_key_masked})`;
+                input.value = "";
+                input.placeholder = `Configured: ${data.gemini_api_key_masked} (leave empty to keep)`;
               }
-            } catch (err) {
-              let base = await resolveBackendUrl();
-              if (!base && !window.location.protocol.startsWith("http")) base = "http://127.0.0.1:8000";
-              const target = base || window.location.origin;
+
+              const scanChoice = document.getElementById("scanEngineChoice");
+              if (scanChoice) scanChoice.value = data.default_engine;
+              const batchChoice = document.getElementById("batchEngineSelect");
+              if (batchChoice) batchChoice.value = data.default_engine;
+
+              setTimeout(() => {
+                closeModal();
+              }, 1200);
+            } else {
               alertBox.style.display = "block";
               alertBox.style.background = "#fef2f2";
               alertBox.style.color = "#991b1b";
               alertBox.style.border = "1px solid #fecaca";
-              alertBox.innerHTML = `<strong>✗ Cannot Save Settings:</strong> Local backend at <code>${escHtml(target)}</code> is not responding.<br><span style="font-size:11.5px;margin-top:4px;display:block;">Please make sure the backend process (<code>python3 server.py</code> or <code>LGCCaseRegister.exe</code>) is running.</span>`;
-            } finally {
-              btn.disabled = false;
-              btn.textContent = "💾 Save Settings";
+              alertBox.innerHTML = `<strong>✗ Error saving settings:</strong> ${escHtml(data.error || "Unknown error")}`;
             }
-          };
-        }
-
-        try {
-          const resp = await apiFetch("/api/settings");
-          const settings = await resp.json();
-          const badge = document.getElementById("aiSettingsKeyBadge");
-          const keyInput = document.getElementById("aiSettingsApiKeyInput");
-          const modelSelect = document.getElementById("aiSettingsModelSelect");
-          const engineSelect = document.getElementById("aiSettingsDefaultEngineSelect");
-
-          if (settings.gemini_api_key_configured) {
-            badge.style.background = "#dcfce7";
-            badge.style.color = "#15803d";
-            badge.textContent = `● Key Configured (${settings.gemini_api_key_masked})`;
-            keyInput.value = "";
-            keyInput.placeholder = `Configured: ${settings.gemini_api_key_masked} (leave empty to keep)`;
-          } else {
-            badge.style.background = "#fee2e2";
-            badge.style.color = "#991b1b";
-            badge.textContent = "○ Key Not Configured";
-            keyInput.value = "";
-            keyInput.placeholder = "Paste your API key (starts with AIzaSy...)";
+          } catch (err) {
+            let base = await resolveBackendUrl();
+            if (!base && !window.location.protocol.startsWith("http")) base = "http://127.0.0.1:8000";
+            const target = base || window.location.origin;
+            alertBox.style.display = "block";
+            alertBox.style.background = "#fef2f2";
+            alertBox.style.color = "#991b1b";
+            alertBox.style.border = "1px solid #fecaca";
+            alertBox.innerHTML = `<strong>✗ Cannot Save Settings:</strong> Local backend at <code>${escHtml(target)}</code> is not responding.<br><span style="font-size:11.5px;margin-top:4px;display:block;">Please make sure the backend process (<code>python3 server.py</code> or <code>LGCCaseRegister.exe</code>) is running.</span>`;
+          } finally {
+            btn.disabled = false;
+            btn.textContent = "💾 Save Settings";
           }
+        };
 
-          if (settings.gemini_model && modelSelect) {
-            modelSelect.value = settings.gemini_model;
-          }
-          if (settings.default_engine && engineSelect) {
-            engineSelect.value = settings.default_engine;
-          }
-        } catch (e) {
-          console.warn("Could not load /api/settings:", e);
-        }
+        // Load current settings asynchronously & update fields
+        (async () => {
+          try {
+            const resp = await apiFetch("/api/settings");
+            const settings = await resp.json();
+            const badge = document.getElementById("aiSettingsKeyBadge");
+            const keyInput = document.getElementById("aiSettingsApiKeyInput");
+            const modelSelect = document.getElementById("aiSettingsModelSelect");
+            const engineSelect = document.getElementById("aiSettingsDefaultEngineSelect");
 
-        const testRes = document.getElementById("aiSettingsTestResult");
-        if (testRes) testRes.style.display = "none";
-        const saveAlert = document.getElementById("aiSettingsSaveAlert");
-        if (saveAlert) saveAlert.style.display = "none";
+            if (!badge || !keyInput) return;
+
+            if (settings.gemini_api_key_configured) {
+              badge.style.background = "#dcfce7";
+              badge.style.color = "#15803d";
+              badge.textContent = `● Key Configured (${settings.gemini_api_key_masked})`;
+              keyInput.value = "";
+              keyInput.placeholder = `Configured: ${settings.gemini_api_key_masked} (leave empty to keep)`;
+            } else {
+              badge.style.background = "#fee2e2";
+              badge.style.color = "#991b1b";
+              badge.textContent = "○ Key Not Configured";
+              keyInput.value = "";
+              keyInput.placeholder = "Paste your API key (starts with AIzaSy...)";
+            }
+
+            if (settings.gemini_model && modelSelect) {
+              modelSelect.value = settings.gemini_model;
+            }
+            if (settings.default_engine && engineSelect) {
+              engineSelect.value = settings.default_engine;
+            }
+          } catch (e) {
+            console.warn("Could not load /api/settings:", e);
+          }
+        })();
 
         // Check server health
         checkServerHealth();
-
-        modal.showModal();
       }
       window.openAiSettingsModal = openAiSettingsModal;
 
@@ -50710,6 +50704,15 @@ function reconcileWorkflowValue(existing, value) {
 
           const topPdfFolder = document.getElementById("topPdfFolderBtn");
           if (topPdfFolder) topPdfFolder.onclick = openPdfFolderModal;
+
+          const topAi = document.getElementById("topAiSettingsBtn");
+          if (topAi) topAi.onclick = openAiSettingsModal;
+
+          const fAi = document.getElementById("fAiSettingsBtn");
+          if (fAi) fAi.onclick = openAiSettingsModal;
+
+          const topLogs = document.getElementById("topLogsBtn");
+          if (topLogs) topLogs.onclick = openLogsModal;
 
           wirePdfViewerControls();
           refreshPdfFolderStatus();
