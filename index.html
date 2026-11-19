@@ -44712,6 +44712,34 @@ function reconcileWorkflowValue(existing, value) {
         t = t.replace(/\bPi[.\s]+(?=Anjaneyareddy)/gi, "P. ");
         t = t.replace(/\bP\.V(?!\.)\b/g, "P.V.");
         t = t.replace(/\bS\.V(?!\.)\b/g, "S.V.");
+
+        // English phonetic letter initials
+        t = t.replace(/\bHech[\.\s]+/gi, "H. ");
+        t = t.replace(/\bSi[\.\s]+(?=[A-Z])/gi, "C. ");
+        t = t.replace(/\bEn[\.\s]+(?=[A-Z])/gi, "N. ");
+        t = t.replace(/\bEm[\.\s]+(?=[A-Z])/gi, "M. ");
+        t = t.replace(/\bEs[\.\s]+(?=[A-Z])/gi, "S. ");
+        t = t.replace(/\bKe[\.\s]+(?=[A-Z])/gi, "K. ");
+        t = t.replace(/\bDi[\.\s]+(?=[A-Z])/gi, "D. ");
+        t = t.replace(/\bTi[\.\s]+(?=[A-Z])/gi, "T. ");
+        t = t.replace(/\bAr[\.\s]+(?=[A-Z])/gi, "R. ");
+        t = t.replace(/\bBi[\.\s]+(?=[A-Z])/gi, "B. ");
+        t = t.replace(/\bJi[\.\s]+(?=[A-Z])/gi, "G. ");
+        t = t.replace(/\bJe[\.\s]+(?=[A-Z])/gi, "J. ");
+        t = t.replace(/\bPi[\.\s]+(?=[A-Z])/gi, "P. ");
+        t = t.replace(/\bVi[\.\s]+(?=[A-Z])/gi, "V. ");
+        t = t.replace(/\bEl[\.\s]+(?=[A-Z])/gi, "L. ");
+        t = t.replace(/\bEf[\.\s]+(?=[A-Z])/gi, "F. ");
+        t = t.replace(/\bAi[\.\s]+(?=[A-Z])/gi, "I. ");
+        t = t.replace(/\bYu[\.\s]+(?=[A-Z])/gi, "U. ");
+        t = t.replace(/\bI\.\s+(?=Mehta\b)/g, "E. ");
+
+        // Designation & Kannada translations
+        t = t.replace(/\b(?:Hindina|ಹಿಂದಿನ)\b/gi, "Former");
+        t = t.replace(/\b(?:Aiti|Ai[\.\s]*Ti[\.\s]*Ai)\b/gi, "I.T.I.");
+        t = t.replace(/\bBlak\b/gi, "Block");
+        t = t.replace(/\bSkul\b/gi, "School");
+        t = t.replace(/\bSteshan\b/gi, "Station");
         t = t.replace(/\b(?:Shrimati|Srimati)\b/gi, "Smt.");
         t = t.replace(/(?<!Smt\.\s)(?<!Smt\.)\bSridevi\b/g, "Smt. Sridevi");
         t = t.replace(/\bC(?=\s+S\/o)/g, "C.");
@@ -44741,6 +44769,16 @@ function reconcileWorkflowValue(existing, value) {
         // Strip noise tokens
         a = a.replace(/\b(?:at\s*Residing\s*at|dt['’]?\s*Residing\s*at|Residing\s*at)\s*[:\-]\s*/gi, "");
         a = a.replace(/\b(?:Shalluku|Thalluku|Talluku|Shalluk|Thaluk|Saluk)\b/gi, "Taluk");
+        a = a.replace(/\b(?:Hindina|ಹಿಂದಿನ)\b/gi, "Former");
+        a = a.replace(/(\d+)\s*(?:Ne|ne|ನೇ)\b/gi, (m, n) => {
+          const num = parseInt(n, 10);
+          const sfx = (num % 100 >= 11 && num % 100 <= 13) ? "th" : {1: "st", 2: "nd", 3: "rd"}[num % 10] || "th";
+          return `${num}${sfx}`;
+        });
+        a = a.replace(/\b(?:Aiti|Ai[\.\s]*Ti[\.\s]*Ai)\b/gi, "I.T.I.");
+        a = a.replace(/\bBlak\b/gi, "Block");
+        a = a.replace(/\bSkul\b/gi, "School");
+        a = a.replace(/\bSteshan\b/gi, "Station");
         a = a.replace(/\b(?:Saktina|Daksina)\s*Taluk\b/gi, "South Taluk");
         a = a.replace(/\b[iIj]\s*J?engaluru\b/gi, "Bengaluru");
         a = a.replace(/\b(?:oe\s*Be\s*Ru\s*Ku|oe\s*ಬೆ\s*ರು\s*ಕು|Resp\s*Galu|10\s*Resp|Bat|ಬಟ್‌|Su|Adesha|Tu\??|ಟು\??)\b[\s,]*/gi, "");
@@ -46043,10 +46081,43 @@ function reconcileWorkflowValue(existing, value) {
         if (respAddrEl) respAddrEl.value = respSer.addrsStr;
       }
 
+      function sanitizePartyList(list, partyType) {
+        if (!Array.isArray(list) || list.length === 0) return [{}];
+        const valid = [];
+        for (const item of list) {
+          if (!item || typeof item !== "object") continue;
+          let rawName = String(item.name || "").trim();
+          if (!rawName) continue;
+          rawName = cleanPartyStr(rawName);
+          item.name = rawName;
+          if (item.address) item.address = cleanAddrStr(item.address);
+
+          // If the name is actually an address line (e.g. 'Thellohalli Village', 'Ambedkar Colony')
+          if (isAddressText(rawName)) {
+            if (valid.length > 0) {
+              const prev = valid[valid.length - 1];
+              const extra = (rawName + ", " + (item.address || "")).trim().replace(/^[\s,.:;\-_/]+|[\s,.:;\-_/]+$/g, "");
+              prev.address = (prev.address ? prev.address + ", " + extra : extra).replace(/^[\s,.:;\-_/]+|[\s,.:;\-_/]+$/g, "");
+              if (!prev.district && item.district) prev.district = item.district;
+              if (!prev.taluk && item.taluk) prev.taluk = item.taluk;
+              if (!prev.hobli && item.hobli) prev.hobli = item.hobli;
+              if (!prev.village && item.village) prev.village = item.village;
+            }
+            continue;
+          }
+          // If procedural or garbage (e.g. 'alalrc', '= vaste', daily order fragments)
+          if (isProceduralOrGarbageParty(rawName)) {
+            continue;
+          }
+          valid.push(item);
+        }
+        return valid.length > 0 ? valid : [{}];
+      }
+
       function renderPetitionerRows(list) {
         const container = document.getElementById("petRows");
         if (!container) return;
-        const items = (Array.isArray(list) && list.length > 0) ? list : [{}];
+        const items = sanitizePartyList(list, "pet");
         container.innerHTML = items.map((item, idx) => petRowHtml(item, idx + 1, items.length)).join("");
         container.querySelectorAll("[data-petrow]").forEach(r => wirePartyRow(r, "pet"));
         wirePartyContainerDragDrop(container, "pet");
@@ -46057,7 +46128,7 @@ function reconcileWorkflowValue(existing, value) {
       function renderRespondentRows(list) {
         const container = document.getElementById("respRows");
         if (!container) return;
-        const items = (Array.isArray(list) && list.length > 0) ? list : [{}];
+        const items = sanitizePartyList(list, "resp");
         container.innerHTML = items.map((item, idx) => respRowHtml(item, idx + 1, items.length)).join("");
         container.querySelectorAll("[data-resprow]").forEach(r => wirePartyRow(r, "resp"));
         wirePartyContainerDragDrop(container, "resp");

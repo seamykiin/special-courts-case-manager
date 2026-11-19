@@ -1794,7 +1794,61 @@ def translate_party_text(text: str) -> str:
         num = int(m.group(1))
         sfx = "th" if 11 <= num % 100 <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(num % 10, "th")
         return f"{num}{sfx}"
-    t = re.sub(r'(\d+)\s*ನೇ\b', _k_ord, t)
+    t = re.sub(r'(\d+)\s*(?:ನೇ|ನೆ)(?![\u0C80-\u0CFFa-zA-Z0-9])', _k_ord, t)
+    t = re.sub(r'(\d+)\s*(?:Ne|ne)\b', _k_ord, t)
+
+    # Convert Kannada script phonetic letter initials to English characters
+    t = re.sub(r'(?i)\bಹೆಚ್[\.\s]+', 'H. ', t)
+    t = re.sub(r'(?i)\bಸಿ[\.\s]+', 'C. ', t)
+    t = re.sub(r'(?i)\bಎನ್[\.\s]+', 'N. ', t)
+    t = re.sub(r'(?i)\bಎಂ[\.\s]+', 'M. ', t)
+    t = re.sub(r'(?i)\bಎಸ್[\.\s]+', 'S. ', t)
+    t = re.sub(r'(?i)\bಕೆ[\.\s]+', 'K. ', t)
+    t = re.sub(r'(?i)\bಡಿ[\.\s]+', 'D. ', t)
+    t = re.sub(r'(?i)\bಟಿ[\.\s]+', 'T. ', t)
+    t = re.sub(r'(?i)\bಆರ್[\.\s]+', 'R. ', t)
+    t = re.sub(r'(?i)\bಬಿ[\.\s]+', 'B. ', t)
+    t = re.sub(r'(?i)\bಜಿ[\.\s]+', 'G. ', t)
+    t = re.sub(r'(?i)\bಜೆ[\.\s]+', 'J. ', t)
+    t = re.sub(r'(?i)\bಪಿ[\.\s]+', 'P. ', t)
+    t = re.sub(r'(?i)\bವಿ[\.\s]+', 'V. ', t)
+    t = re.sub(r'(?i)\bಎಲ್[\.\s]+', 'L. ', t)
+    t = re.sub(r'(?i)\bಎಫ್[\.\s]+', 'F. ', t)
+    t = re.sub(r'(?i)\bಐ[\.\s]+', 'I. ', t)
+    t = re.sub(r'(?i)\bಯು[\.\s]+', 'U. ', t)
+    # Kannada letter initial 'ಇ' / 'ಈ' / 'ಎ' / 'ಏ' before name -> E.
+    t = re.sub(r'(?<![\u0C80-\u0CFFa-zA-Z0-9])[ಇಈಎಏ][\.\s]+(?=[\u0C80-\u0CFFA-Za-z])', 'E. ', t)
+
+    # Compound acronyms in Kannada / English
+    t = re.sub(r'(?i)(?:ಐ[\.\s]*ಟಿ[\.\s]*ಐ[\.\s]*|Ai[\.\s]*Ti[\.\s]*Ai[\.\s]*)', 'I.T.I. ', t)
+
+    # English phonetic letter initials
+    t = re.sub(r'(?i)\bHech[\.\s]+', 'H. ', t)
+    t = re.sub(r'(?i)\bSi[\.\s]+(?=[A-Z])', 'C. ', t)
+    t = re.sub(r'(?i)\bEn[\.\s]+(?=[A-Z])', 'N. ', t)
+    t = re.sub(r'(?i)\bEm[\.\s]+(?=[A-Z])', 'M. ', t)
+    t = re.sub(r'(?i)\bEs[\.\s]+(?=[A-Z])', 'S. ', t)
+    t = re.sub(r'(?i)\bKe[\.\s]+(?=[A-Z])', 'K. ', t)
+    t = re.sub(r'(?i)\bDi[\.\s]+(?=[A-Z])', 'D. ', t)
+    t = re.sub(r'(?i)\bTi[\.\s]+(?=[A-Z])', 'T. ', t)
+    t = re.sub(r'(?i)\bAr[\.\s]+(?=[A-Z])', 'R. ', t)
+    t = re.sub(r'(?i)\bBi[\.\s]+(?=[A-Z])', 'B. ', t)
+    t = re.sub(r'(?i)\bJi[\.\s]+(?=[A-Z])', 'G. ', t)
+    t = re.sub(r'(?i)\bJe[\.\s]+(?=[A-Z])', 'J. ', t)
+    t = re.sub(r'(?i)\bPi[\.\s]+(?=[A-Z])', 'P. ', t)
+    t = re.sub(r'(?i)\bVi[\.\s]+(?=[A-Z])', 'V. ', t)
+    t = re.sub(r'(?i)\bEl[\.\s]+(?=[A-Z])', 'L. ', t)
+    t = re.sub(r'(?i)\bEf[\.\s]+(?=[A-Z])', 'F. ', t)
+    t = re.sub(r'(?i)\bAi[\.\s]+(?=[A-Z])', 'I. ', t)
+    t = re.sub(r'(?i)\bYu[\.\s]+(?=[A-Z])', 'U. ', t)
+
+    # Middle / surname initial adjustments (e.g. I. Mehta -> E. Mehta)
+    t = re.sub(r'\bI\.\s+(?=Mehta\b)', 'E. ', t)
+
+    # Common transliteration spellings
+    t = re.sub(r'(?i)\bBlak\b', 'Block', t)
+    t = re.sub(r'(?i)\bSkul\b', 'School', t)
+    t = re.sub(r'(?i)\bSteshan\b', 'Station', t)
 
     # Specific OCR artifacts & noise before phrase translation
     t = re.sub(r'(?i)\b(?:ಟು\??|Tu\??)\b', '', t)
@@ -1803,8 +1857,9 @@ def translate_party_text(text: str) -> str:
 
     k_phrases = [
         # Officer Posts & Designations (English/Romanized & Kannada)
-        (r'(?i)\b(?:Paurayukta(?:ru)?|ಪೌರಾಯುಕ್ತ(?:ರು)?)\b', 'Municipal Commissioner'),
-        (r'(?i)\b(?:Hindina\s+Paurayukta(?:ru)?|ಹಿಂದಿನ\s+ಪೌರಾಯುಕ್ತ(?:ರು)?)\b', 'Ex-Municipal Commissioner'),
+        (r'(?i)(?:\bHindina\s+Paurayukta(?:ru)?\b|ಹಿಂದಿನ\s*ಪೌರಾಯುಕ್ತ(?:ರು)?)', 'Former Municipal Commissioner'),
+        (r'(?i)(?:\bPaurayukta(?:ru)?\b|ಪೌರಾಯುಕ್ತ(?:ರು)?)', 'Municipal Commissioner'),
+        (r'(?i)(?:\bHindina\b|ಹಿಂದಿನ)', 'Former'),
         (r'(?i)\b(?:(?:Jilla|District)\s+Vyavasthapaka(?:ru)?|ಜಿಲ್ಲಾ\s+ವ್ಯವಸ್ಥಾಪಕ(?:ರು)?)\b', 'District Manager'),
         (r'(?i)\b(?:Vyavasthapaka(?:ru)?|ವ್ಯವಸ್ಥಾಪಕ(?:ರು)?)\b', 'Manager'),
         (r'(?i)\bKaravas[ou]+lig[a-z]*\b|ಕರವಸೂಲಿಗಾರ(?:ರು|ರ)?', 'Tax Collector'),
@@ -2063,6 +2118,15 @@ def translate_party_text(text: str) -> str:
             cleaned_lines.append(cline)
 
     full = "\n".join(cleaned_lines)
+    full = re.sub(r'(\d+)\s*(?:Ne|ne)\b', _k_ord, full)
+    full = re.sub(r'(?i)\bHech[\.\s]+', 'H. ', full)
+    full = re.sub(r'(?i)\bSi[\.\s]+(?=[A-Z])', 'C. ', full)
+    full = re.sub(r'(?i)\b(?:Hindina)\b', 'Former', full)
+    full = re.sub(r'(?i)\bBlak\b', 'Block', full)
+    full = re.sub(r'(?i)\bSkul\b', 'School', full)
+    full = re.sub(r'(?i)\bSteshan\b', 'Station', full)
+    full = re.sub(r'(?i)(?:Aiti|Ai[\.\s]*Ti[\.\s]*Ai[\.\s]*)', 'I.T.I. ', full)
+    full = re.sub(r'(?i)(?:\bI\.\s*T\.\s*I\.|\bI\s*\.\s*T\s*\.\s*I\s*\.)', 'I.T.I.', full)
     if re.search(r'(?:^|\n)\s*1[\.\)]\s*', full):
         parts = re.split(r'(?:^|\n)\s*(?=\d+[\.\)]\s*)', full)
         clean_parties = []
@@ -2957,6 +3021,26 @@ def clean_party_token_py(val: str) -> str:
     if not val:
         return ""
     s = re.sub(r"[\u200c\u200d\ufeff]", "", str(val))
+    # Convert phonetic letter initials: Hech -> H., Si -> C., etc.
+    s = re.sub(r'(?i)\bHech[\.\s]+', 'H. ', s)
+    s = re.sub(r'(?i)\bSi[\.\s]+(?=[A-Z])', 'C. ', s)
+    s = re.sub(r'(?i)\bEn[\.\s]+(?=[A-Z])', 'N. ', s)
+    s = re.sub(r'(?i)\bEm[\.\s]+(?=[A-Z])', 'M. ', s)
+    s = re.sub(r'(?i)\bEs[\.\s]+(?=[A-Z])', 'S. ', s)
+    s = re.sub(r'(?i)\bKe[\.\s]+(?=[A-Z])', 'K. ', s)
+    s = re.sub(r'(?i)\bDi[\.\s]+(?=[A-Z])', 'D. ', s)
+    s = re.sub(r'(?i)\bTi[\.\s]+(?=[A-Z])', 'T. ', s)
+    s = re.sub(r'(?i)\bAr[\.\s]+(?=[A-Z])', 'R. ', s)
+    s = re.sub(r'(?i)\bBi[\.\s]+(?=[A-Z])', 'B. ', s)
+    s = re.sub(r'(?i)\bJi[\.\s]+(?=[A-Z])', 'G. ', s)
+    s = re.sub(r'(?i)\bJe[\.\s]+(?=[A-Z])', 'J. ', s)
+    s = re.sub(r'(?i)\bPi[\.\s]+(?=[A-Z])', 'P. ', s)
+    s = re.sub(r'(?i)\bVi[\.\s]+(?=[A-Z])', 'V. ', s)
+    s = re.sub(r'(?i)\bEl[\.\s]+(?=[A-Z])', 'L. ', s)
+    s = re.sub(r'(?i)\bEf[\.\s]+(?=[A-Z])', 'F. ', s)
+    s = re.sub(r'(?i)\bAi[\.\s]+(?=[A-Z])', 'I. ', s)
+    s = re.sub(r'(?i)\bYu[\.\s]+(?=[A-Z])', 'U. ', s)
+    s = re.sub(r'\bI\.\s+(?=Mehta\b)', 'E. ', s)
     # If Smt / Sri / Shri / Kumari / etc is in name, strip any stray OCR noise preceding it (e.g. '1 Oja : | Smt.')
     s = re.sub(r'^.*?\b(Smt\.?|Sri\.?|Shri\.?|Kumari|Kum\.?|ಶ್ರೀಮತಿ|ಶ್ರೀ|ಕುಮಾರಿ)\b', r'\1', s, flags=re.I)
     # Strip leading noise words and numbers before names: e.g. '1 Oja : |', 'Gata 2.', 'hohe 2.'
@@ -2973,6 +3057,16 @@ def clean_party_address_py(addr: str) -> str:
     s = re.sub(r"(?i)\b(?:adesha(?:da)?\s*(?:prati|patra|patre|pata|pati)|order\s*sheet|daily\s*order)\b.*", "", s)
     s = re.sub(r"(?i)-?\s*(?:virud+ha|eirudda|dirudda|vs\.?)\s*-?.*", "", s)
     s = re.sub(r"(?i)\b(?:Shalluku|Thalluku|Talluku|Shalluk|Thaluk|Saluk)\b", "Taluk", s)
+    s = re.sub(r"(?i)\b(?:Hindina|ಹಿಂದಿನ)\b", "Former", s)
+    def _addr_ord(m):
+        num = int(m.group(1))
+        sfx = "th" if 11 <= num % 100 <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(num % 10, "th")
+        return f"{num}{sfx}"
+    s = re.sub(r'(\d+)\s*(?:ನೇ|Ne|ne)\b', _addr_ord, s)
+    s = re.sub(r'(?i)\b(?:ಐ[\.\s]*ಟಿ[\.\s]*ಐ|Ai[\.\s]*Ti[\.\s]*Ai)\b', 'I.T.I.', s)
+    s = re.sub(r'(?i)\bBlak\b', 'Block', s)
+    s = re.sub(r'(?i)\bSkul\b', 'School', s)
+    s = re.sub(r'(?i)\bSteshan\b', 'Station', s)
     # Clean leading OCR noise numbers before address keywords (e.g. '5. Thellohalli Village' -> 'Thellohalli Village')
     s = re.sub(r'(?:^|,\s*)(?:[1-9]\d{0,1}\s*[\.\)]\s*)(?=[A-Za-z\s]+(?:Village|Grama|Halli|Post|Hobli|Taluk|District|Colony|Layout|Road|Street|Near|Opp))', r', ', s, flags=re.I)
     s = re.sub(r"\n+", ", ", s)
